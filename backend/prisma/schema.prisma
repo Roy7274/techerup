@@ -1,0 +1,257 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 用户咨询信息表
+model Inquiry {
+  id            String   @id @default(uuid())
+  city          String   // 城市
+  grade         String   // 学段：小学/初中/高中
+  identity      String   // 咨询身份：本人/家长
+  studentGender String   // 学生性别：男孩/女孩
+  phone         String   // 联系电话
+  status        String   @default("未联系") // 状态：已联系/未联系
+  notes         String?  // 备注
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // 关联对话记录
+  conversations Conversation[]
+
+  @@map("inquiries")
+}
+
+// 会话表
+model Session {
+  id          String   @id @default(uuid())
+  sessionId   String   @unique // 会话ID
+  isAgent     Boolean  @default(false) // 是否已转人工客服
+  agentId     String?  // 人工客服ID
+  metadata    Json?    // 元数据
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  lastActivity DateTime @default(now()) // 最后活跃时间
+
+  @@map("sessions")
+  @@index([sessionId])
+}
+
+// 对话记录表
+model Conversation {
+  id         String   @id @default(uuid())
+  inquiryId  String?  // 关联的咨询记录
+  sessionId  String   // 会话ID
+  sender     String   // 发送者：user/bot/agent
+  message    String   @db.Text // 消息内容
+  metadata   Json?    // 元数据（如IP、设备信息等）
+  createdAt  DateTime @default(now())
+
+  inquiry Inquiry? @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+
+  @@map("conversations")
+  @@index([sessionId])
+  @@index([inquiryId])
+}
+
+// 轮播图表
+model Banner {
+  id          String   @id @default(uuid())
+  title       String   // 标题
+  imageUrl    String   // 图片地址
+  link        String?  // 跳转链接
+  order       Int      @default(0) // 排序
+  isActive    Boolean  @default(true) // 是否启用
+  description String?  // 描述
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("banners")
+}
+
+// 商家信息表
+model MerchantInfo {
+  id           String   @id @default(uuid())
+  name         String   // 机构名称
+  description  String   @db.Text // 机构简介
+  detailedDescription String? @db.Text // 详细介绍（富文本）
+  services     Json     // 服务特色（JSON数组）
+  advantages   Json     // 师资优势（JSON数组）
+  contact      Json     // 联系方式（电话、地址等）
+  welcomeMessage String? // 欢迎语（用于前台对话默认展示）
+  businessHours String? // 营业时间
+  logoUrl      String?  // Logo地址
+  coverUrl     String?  // 封面图
+  isActive     Boolean  @default(true) // 是否启用
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("merchant_info")
+}
+
+// 管理员表
+model Admin {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String   // 加密后的密码
+  email     String?
+  role      String   @default("admin") // 角色：admin/super_admin
+  isActive  Boolean  @default(true)
+  lastLogin DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admins")
+}
+
+// 系统配置表
+model SystemConfig {
+  id        String   @id @default(uuid())
+  key       String   @unique // 配置键
+  value     String   @db.Text // 配置值
+  category  String   // 分类：general/ai/contact等
+  description String? // 描述
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_configs")
+}
+
+// 内容模块表（用于首页模块化展示）
+model ContentModule {
+  id          String   @id @default(uuid())
+  title       String   // 模块标题，如"课程服务"、"精选案例"
+  order       Int      @default(0) // 排序
+  isActive    Boolean  @default(true) // 是否启用
+  description String?  // 模块描述
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // 关联的内容卡片
+  cards       ContentCard[]
+
+  @@map("content_modules")
+}
+
+// 内容卡片表（模块内的具体卡片）
+model ContentCard {
+  id          String   @id @default(uuid())
+  moduleId    String   // 所属模块ID
+  title       String   // 卡片标题
+  imageUrl    String   // 卡片图片
+  tags        Json     // 标签数组
+  articleId   String?  // 关联的文章ID
+  order       Int      @default(0) // 排序
+  isActive    Boolean  @default(true) // 是否启用
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  module      ContentModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  article     Article?      @relation(fields: [articleId], references: [id], onDelete: SetNull)
+
+  @@map("content_cards")
+  @@index([moduleId])
+  @@index([articleId])
+}
+
+// 文章表（用于卡片点击后展示的详细内容）
+model Article {
+  id          String   @id @default(uuid())
+  title       String   // 文章标题
+  content     String   @db.Text // 富文本内容
+  coverImage  String?  // 封面图
+  author      String?  // 作者
+  isActive    Boolean  @default(true) // 是否启用
+  viewCount   Int      @default(0) // 浏览次数
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // 反向关联
+  cards       ContentCard[]
+
+  @@map("articles")
+}
+
+// 表单模板表（用于预设表单）
+model FormTemplate {
+  id          String   @id @default(uuid())
+  name        String   // 模板名称，如"预约试听"、"课程咨询"
+  description String?  // 模板描述
+  isActive    Boolean  @default(true) // 是否启用
+  order       Int      @default(0) // 排序
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // 关联的表单字段
+  fields      FormField[]
+  // 关联的自动回复
+  autoReplies AutoReply[]
+
+  @@map("form_templates")
+}
+
+// 表单字段表
+model FormField {
+  id          String   @id @default(uuid())
+  templateId  String   // 所属模板ID
+  fieldName   String   // 字段名称，如"city"、"grade"、"phone"
+  fieldLabel  String   // 字段标签，如"城市"、"学段"、"联系电话"
+  fieldType   String   // 字段类型：text/select/radio/checkbox/tel
+  options     Json?    // 选项数据（用于select/radio/checkbox）
+  placeholder String?  // 占位符
+  required    Boolean  @default(true) // 是否必填
+  order       Int      @default(0) // 排序
+  validation  Json?    // 验证规则（正则、最大长度等）
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  template    FormTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@map("form_fields")
+  @@index([templateId])
+}
+
+// 自动回复表
+model AutoReply {
+  id            String   @id @default(uuid())
+  name          String   // 回复名称（管理用）
+  triggerType   String   // 触发类型：keyword/welcome/default/manual
+  keywords      Json?    // 触发关键词数组
+  priority      Int      @default(0) // 优先级（数字越大优先级越高）
+  message       String   @db.Text // 回复内容
+  hasOptions    Boolean  @default(false) // 是否包含可点击选项
+  options       Json?    // 选项数据 [{label: "预约试听", value: "booking", formTemplateId: "xxx"}]
+  formTemplateId String? // 关联的表单模板ID
+  isActive      Boolean  @default(true) // 是否启用
+  useConditions Json?    // 使用条件（时间段、特定场景等）
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  formTemplate  FormTemplate? @relation(fields: [formTemplateId], references: [id], onDelete: SetNull)
+
+  @@map("auto_replies")
+  @@index([triggerType])
+  @@index([formTemplateId])
+}
+
+// 自动回复暂停记录表（用于管理自动回复的暂停状态）
+model AutoReplyPause {
+  id          String   @id @default(uuid())
+  sessionId   String   @unique // 会话ID
+  pausedUntil DateTime // 暂停到什么时候
+  reason      String   // 暂停原因：agent_reply/user_left
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("auto_reply_pauses")
+  @@index([sessionId])
+  @@index([pausedUntil])
+}
+

@@ -1,0 +1,146 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 243, 244, 246;
+  --background-end-rgb: 243, 244, 246;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+  /* 移动端优化 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  touch-action: manipulation;
+}
+
+/* 移动端优化：防止双击缩放和平滑滚动 */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+/* 顶部可折叠 Banner 容器 */
+.collapsible-banner {
+  transition: height 0.35s ease, opacity 0.35s ease, margin 0.35s ease;
+  height: 24rem; /* 与 h-96 对齐，初始高度 */
+  opacity: 1;
+  margin-bottom: 1.5rem;
+}
+
+.collapsible-banner.is-collapsed {
+  height: 0 !important;
+  opacity: 0;
+  margin-bottom: 0;
+}
+
+/* 自定义滚动条 - 仅在桌面端显示 */
+@media (min-width: 640px) {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+}
+
+/* 移动端隐藏滚动条但保持滚动功能 */
+@media (max-width: 639px) {
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  *::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* 对话气泡动画 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-bubble {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+/* 打字效果 */
+@keyframes typing {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
+
+.typing-indicator span {
+  animation: typing 1.4s infinite;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* 圆润输入框样式优化 */
+.ant-input.border-0,
+.ant-input-textarea.border-0 textarea {
+  border: none !important;
+  outline: none !important;
+}
+
+.ant-input.border-0:focus,
+.ant-input.border-0:hover,
+.ant-input-textarea.border-0 textarea:focus,
+.ant-input-textarea.border-0 textarea:hover {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* 发送按钮去除所有边框和轮廓 */
+button:focus,
+button:active,
+button:focus-visible {
+  outline: none !important;
+}
+
+button[aria-label="发送"]:focus,
+button[aria-label="发送"]:active,
+button[aria-label="发送"]:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
