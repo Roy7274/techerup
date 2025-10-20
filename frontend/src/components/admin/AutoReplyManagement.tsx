@@ -113,7 +113,7 @@ export default function AutoReplyManagement() {
   const ensureDefaultFormTemplate = async () => {
     try {
       const templates = await getFormTemplates(false)
-      const hasDefault = templates.some((t: any) => t.name === '预约试听表单')
+      const hasDefault = templates.data && templates.data.some((t: any) => t.name === '预约试听表单')
       
       if (!hasDefault) {
         // 创建默认表单模板
@@ -598,7 +598,7 @@ export default function AutoReplyManagement() {
                 <p><strong>触发类型说明：</strong></p>
                 <ul style={{ marginBottom: 16, paddingLeft: 20 }}>
                   <li><strong>欢迎语</strong>：用户首次进入时发送，建议设置高优先级（如100）</li>
-                  <li><strong>关键词触发</strong>：匹配用户消息中的关键词时触发，如"价格"、"费用"等</li>
+                  <li><strong>关键词触发</strong>：匹配用户消息中的关键词时触发，如&quot;价格&quot;、&quot;费用&quot;等</li>
                   <li><strong>定时询问</strong>：按优先级顺序发送的询问消息，用于收集用户信息（城市→学段→性别→身份→电话）</li>
                   <li><strong>默认回复</strong>：当没有其他匹配时的回复，建议设置低优先级（如10）</li>
                 </ul>
@@ -651,7 +651,7 @@ export default function AutoReplyManagement() {
               size="small"
               type="inner"
             >
-              <p>当前使用固定的"预约试听表单"模板，包含以下字段：</p>
+              <p>当前使用固定的&quot;预约试听表单&quot;模板，包含以下字段：</p>
               <ul style={{ marginBottom: 0, paddingLeft: 20 }}>
                 <li>所在城市（文本输入）</li>
                 <li>学段（下拉选择：小学/初中/高中）</li>

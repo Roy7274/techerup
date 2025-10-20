@@ -396,20 +396,20 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
         const initialValues: any = {}
         
         // 如果有城市信息，设置到表单中
-        if (sessionFormData.city) {
-          initialValues.city = sessionFormData.city
+        if (sessionFormData.data && sessionFormData.data.city) {
+          initialValues.city = sessionFormData.data.city
         }
-        if (sessionFormData.grade) {
-          initialValues.grade = sessionFormData.grade
+        if (sessionFormData.data && sessionFormData.data.grade) {
+          initialValues.grade = sessionFormData.data.grade
         }
-        if (sessionFormData.studentGender) {
-          initialValues.studentGender = sessionFormData.studentGender
+        if (sessionFormData.data && sessionFormData.data.studentGender) {
+          initialValues.studentGender = sessionFormData.data.studentGender
         }
-        if (sessionFormData.identity) {
-          initialValues.identity = sessionFormData.identity
+        if (sessionFormData.data && sessionFormData.data.identity) {
+          initialValues.identity = sessionFormData.data.identity
         }
-        if (sessionFormData.phone) {
-          initialValues.phone = sessionFormData.phone
+        if (sessionFormData.data && sessionFormData.data.phone) {
+          initialValues.phone = sessionFormData.data.phone
         }
         
         form.setFieldsValue(initialValues)
@@ -626,11 +626,11 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
                   required: field.required,
                   message: `请输入${field.fieldLabel}`,
                 },
-                field.fieldType === 'tel' && {
+                ...(field.fieldType === 'tel' ? [{
                   pattern: /^1[3-9]\d{9}$/,
                   message: '请输入有效的手机号码',
-                },
-              ].filter(Boolean)}
+                }] : []),
+              ]}
             >
               {renderFormField(field)}
             </Form.Item>

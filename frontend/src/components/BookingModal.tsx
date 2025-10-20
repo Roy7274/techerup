@@ -27,9 +27,9 @@ export default function BookingModal({ visible, onClose, sessionId }: BookingMod
       if (sessionId) {
         try {
           const sessionFormData = await getSessionFormData(sessionId)
-          if (sessionFormData && sessionFormData.city) {
-            setCity(sessionFormData.city)
-            form.setFieldValue('city', sessionFormData.city)
+          if (sessionFormData && sessionFormData.data && sessionFormData.data.city) {
+            setCity(sessionFormData.data.city)
+            form.setFieldValue('city', sessionFormData.data.city)
             return
           }
         } catch (error) {

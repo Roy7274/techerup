@@ -1,5 +1,5 @@
 # Backend Dockerfile
-FROM node:18-alpine
+FROM docker.m.daocloud.io/library/node:18-alpine
 
 # Set working directory
 WORKDIR /app
