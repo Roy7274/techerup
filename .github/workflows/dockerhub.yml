@@ -18,7 +18,6 @@ on:
 
 env:
   REGISTRY: docker.io
-  DOCKERHUB_USERNAME: roy7274
 
 jobs:
   build-and-push:
@@ -41,7 +40,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ env.DOCKERHUB_USERNAME }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Prepare tags
@@ -50,8 +49,8 @@ jobs:
           TAG="${{ github.event.inputs.tag }}"
           if [ -z "$TAG" ]; then TAG=latest; fi
           echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "image_front=${{ env.DOCKERHUB_USERNAME }}/teacherup-frontend:$TAG" >> $GITHUB_OUTPUT
-          echo "image_back=${{ env.DOCKERHUB_USERNAME }}/teacherup-backend:$TAG" >> $GITHUB_OUTPUT
+          echo "image_front=${{ secrets.DOCKERHUB_USERNAME }}/teacherup-frontend:$TAG" >> $GITHUB_OUTPUT
+          echo "image_back=${{ secrets.DOCKERHUB_USERNAME }}/teacherup-backend:$TAG" >> $GITHUB_OUTPUT
 
       - name: Build and push frontend
         uses: docker/build-push-action@v6
