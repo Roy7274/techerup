@@ -18,3 +18,4 @@ console.log('1. 启动后端服务');
 console.log('2. 在后台创建scheduled类型的自动回复');
 console.log('3. 用户发送消息后等待30秒');
 console.log('4. 查看控制台日志确认定时任务执行');
+

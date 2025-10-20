@@ -1,9 +1,13 @@
--- 数据库初始化脚本
--- 创建数据库（如果不存在）
-CREATE DATABASE IF NOT EXISTS teacherup;
+-- 初始化数据库脚本
+-- 创建数据库
+CREATE DATABASE teacherup;
 
--- 设置时区
-SET timezone = 'Asia/Shanghai';
+-- 切换到数据库
+\c teacherup;
 
--- 创建扩展
+-- 创建扩展（如果需要）
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 提示
+SELECT 'Database teacherup created successfully!' as message;
+

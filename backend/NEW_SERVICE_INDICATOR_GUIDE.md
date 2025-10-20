@@ -142,3 +142,4 @@ console.log('showServiceIndicator:', showServiceIndicator)
 // 检查DOM元素
 document.querySelector('[class*="正在为您服务"]')
 ```
+
