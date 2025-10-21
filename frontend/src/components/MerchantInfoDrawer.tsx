@@ -4,7 +4,9 @@ import { Drawer, Typography, Image, Space, Tag, Divider, Button } from 'antd'
 import { PhoneOutlined, EnvironmentOutlined, ClockCircleOutlined, StarOutlined } from '@ant-design/icons'
 
 const { Title, Paragraph, Text } = Typography
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+import config from '@/lib/config'
+
+const API_URL = config.API_URL
 
 interface MerchantInfoDrawerProps {
   visible: boolean

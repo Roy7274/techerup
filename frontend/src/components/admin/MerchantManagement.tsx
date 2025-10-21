@@ -6,8 +6,9 @@ import { SaveOutlined, InboxOutlined } from '@ant-design/icons'
 import type { UploadFile, UploadProps } from 'antd'
 import { getAllMerchants, updateMerchantInfo, createMerchant, uploadMerchantLogo } from '@/lib/api'
 import RichTextEditor from '@/components/RichTextEditor'
+import config from '@/lib/config'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+const API_URL = config.API_URL
 
 export default function MerchantManagement() {
   const [form] = Form.useForm()

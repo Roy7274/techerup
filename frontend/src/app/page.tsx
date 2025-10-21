@@ -8,8 +8,9 @@ import BookingModal from '@/components/BookingModal'
 import ArticleDrawer from '@/components/ArticleDrawer'
 import MerchantInfoDrawer from '@/components/MerchantInfoDrawer'
 import { getMerchantInfo, getBanners, getContentModules } from '@/lib/api'
+import config from '@/lib/config'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+const API_URL = config.API_URL
 
 export default function Home() {
   const [chatVisible, setChatVisible] = useState(false)

@@ -31,8 +31,9 @@ interface ChatWidgetProps {
   merchantName?: string
   merchantLogo?: string
 }
+import config from '@/lib/config'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+const API_URL = config.API_URL
 
 export default function ChatWidget({ visible, onClose, welcomeMessage, inline = false, merchantName, merchantLogo }: ChatWidgetProps) {
   const [messages, setMessages] = useState<Message[]>([])

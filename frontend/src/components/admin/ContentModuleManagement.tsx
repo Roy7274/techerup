@@ -43,8 +43,9 @@ import {
 const RichTextEditor = dynamic(() => import('@/components/RichTextEditor'), {
   ssr: false,
 })
+import config from '@/lib/config'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+const API_URL = config.API_URL
 
 export default function ContentModuleManagement() {
   const [activeTab, setActiveTab] = useState('modules')
