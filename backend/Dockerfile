@@ -22,5 +22,5 @@ RUN pnpm build
 # Expose port
 EXPOSE 3001
 
-# Start the application
-CMD ["sh", "-c", "npx prisma migrate deploy && pnpm start:prod"]
+# Start the application with proper crypto support and database migration
+CMD ["sh", "-c", "npx prisma migrate deploy && node --experimental-global-webcrypto dist/main"]

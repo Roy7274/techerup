@@ -30,7 +30,7 @@ services:
       DATABASE_URL: postgresql://teacherup:teacherup123@postgres:5432/teacherup
       JWT_SECRET: your-jwt-secret-key-change-in-production
       PORT: 3001
-      NODE_ENV: production
+      NODE_ENV: development
     ports:
       - "3001:3001"
     depends_on:
@@ -41,6 +41,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
     volumes:
       - ./backend/uploads:/app/uploads
     restart: unless-stopped
