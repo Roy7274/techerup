@@ -848,6 +848,7 @@ export class ConversationService {
           identity: formData.identity || '未知',
           phone: formData.phone || `表单-${sessionId.slice(-8)}`,
           status: formData.phone ? '未联系' : '信息不完整',
+          formData: formData, // 保存完整的表单数据
         },
       });
       

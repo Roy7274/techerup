@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Card, List, Input, Button, Badge, Avatar, Space, Empty, message as antMessage, Tooltip, Modal, Popconfirm, Alert } from 'antd'
-import { SendOutlined, UserOutlined, CustomerServiceOutlined, ReloadOutlined, PlusOutlined, DeleteOutlined, FileTextOutlined } from '@ant-design/icons'
+import { SendOutlined, UserOutlined, CustomerServiceOutlined, ReloadOutlined, PlusOutlined, DeleteOutlined, FileTextOutlined, FormOutlined } from '@ant-design/icons'
+import QuickFormModal from './QuickFormModal'
 import { getConversations, sendAgentMessage, getActiveSessions, getPendingAgentSessions, archiveSession, deleteSession } from '@/lib/api'
 import { 
   initSocket, 
@@ -37,6 +38,7 @@ export default function AgentChat() {
   const [inputValue, setInputValue] = useState('')
   const [loading, setLoading] = useState(false)
   const [userLeftAlert, setUserLeftAlert] = useState(false)
+  const [quickFormVisible, setQuickFormVisible] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // 自动滚动到底部
@@ -241,7 +243,7 @@ export default function AgentChat() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-200px)] gap-4">
+    <div className="flex h-[calc(100vh-200px)] gap-4 relative">
       {/* 左侧会话列表 */}
       <Card 
         title={
@@ -526,6 +528,36 @@ export default function AgentChat() {
           </div>
         )}
       </Card>
+
+      {/* 悬浮表单按钮 */}
+      {selectedSession && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <Tooltip title="快速录入表单" placement="left">
+            <Button
+              type="primary"
+              shape="circle"
+              size="large"
+              icon={<FormOutlined />}
+              onClick={() => setQuickFormVisible(true)}
+              className="shadow-lg hover:shadow-xl transition-shadow"
+              style={{
+                width: 56,
+                height: 56,
+                backgroundColor: '#1890ff',
+                borderColor: '#1890ff'
+              }}
+            />
+          </Tooltip>
+        </div>
+      )}
+
+      {/* 快速表单模态框 */}
+      <QuickFormModal
+        visible={quickFormVisible}
+        onClose={() => setQuickFormVisible(false)}
+        sessionId={selectedSession || undefined}
+        messages={messages}
+      />
     </div>
   )
 }

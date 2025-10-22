@@ -1,12 +1,33 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Table, Tag, Button, Space, Select, DatePicker, message, Modal, Form, Input, Switch } from 'antd'
+import { Table, Tag, Button, Space, Select, DatePicker, message, Modal, Form, Input, Switch, Row, Col } from 'antd'
 import { EyeOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons'
-import { getInquiries, updateInquiry, deleteInquiry } from '@/lib/api'
+import { getInquiries, updateInquiry, deleteInquiry, getFormTemplates } from '@/lib/api'
 import dayjs from 'dayjs'
 
 const { RangePicker } = DatePicker
+
+interface FormField {
+  fieldName: string
+  fieldLabel: string
+  fieldType: string
+  options?: any
+  placeholder?: string
+  required?: boolean
+  order?: number
+}
+
+interface FormTemplate {
+  id: string
+  name: string
+  description?: string
+  isActive: boolean
+  order: number
+  fields: FormField[]
+  createdAt: string
+  updatedAt: string
+}
 
 export default function InquiryManagement() {
   const [inquiries, setInquiries] = useState<any[]>([])
@@ -15,9 +36,12 @@ export default function InquiryManagement() {
   const [detailVisible, setDetailVisible] = useState(false)
   const [selectedInquiry, setSelectedInquiry] = useState<any>(null)
   const [showIncomplete, setShowIncomplete] = useState(false) // 默认不显示信息不完整的咨询
+  const [formTemplates, setFormTemplates] = useState<FormTemplate[]>([])
+  const [templateLoading, setTemplateLoading] = useState(false)
 
   useEffect(() => {
     loadInquiries()
+    loadFormTemplates()
   }, [filters])
 
   const loadInquiries = async () => {
@@ -31,6 +55,26 @@ export default function InquiryManagement() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const loadFormTemplates = async () => {
+    try {
+      setTemplateLoading(true)
+      const response = await getFormTemplates(false)
+      const templates = Array.isArray(response) ? response : response.data || []
+      setFormTemplates(templates)
+    } catch (error) {
+      console.error('加载表单模板失败:', error)
+      message.error('加载表单模板失败')
+    } finally {
+      setTemplateLoading(false)
+    }
+  }
+
+  // 获取当前活跃的表单模板字段
+  const getActiveFormFields = () => {
+    const activeTemplate = formTemplates.find(t => t.isActive)
+    return activeTemplate?.fields || []
   }
 
   // 过滤显示的数据
@@ -73,103 +117,159 @@ export default function InquiryManagement() {
     setDetailVisible(true)
   }
 
-  const columns = [
-    {
-      title: '城市',
-      dataIndex: 'city',
-      key: 'city',
-      filters: Array.from(new Set(inquiries.map(i => i.city))).map(city => ({
-        text: city,
-        value: city,
-      })),
-      onFilter: (value: any, record: any) => record.city === value,
-    },
-    {
-      title: '学段',
-      dataIndex: 'grade',
-      key: 'grade',
-      filters: [
-        { text: '小学', value: '小学' },
-        { text: '初中', value: '初中' },
-        { text: '高中', value: '高中' },
-      ],
-      onFilter: (value: any, record: any) => record.grade === value,
-    },
-    {
-      title: '性别',
-      dataIndex: 'studentGender',
-      key: 'studentGender',
-    },
-    {
-      title: '身份',
-      dataIndex: 'identity',
-      key: 'identity',
-    },
-    {
-      title: '联系电话',
-      dataIndex: 'phone',
-      key: 'phone',
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: string) => (
-        <Tag color={
-          status === '已联系' ? 'success' : 
-          status === '信息不完整' ? 'default' : 
-          'warning'
-        }>
-          {status}
-        </Tag>
-      ),
-      filters: [
-        { text: '已联系', value: '已联系' },
-        { text: '未联系', value: '未联系' },
-        { text: '信息不完整', value: '信息不完整' },
-      ],
-      onFilter: (value: any, record: any) => record.status === value,
-    },
-    {
-      title: '提交时间',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      render: (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm'),
-      sorter: (a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-    },
-    {
-      title: '操作',
-      key: 'action',
-      render: (text: any, record: any) => (
-        <Space size="small">
-          <Button
-            type="link"
-            icon={<EyeOutlined />}
-            onClick={() => handleViewDetail(record)}
-          >
-            查看
-          </Button>
-          {record.status === '未联系' && (
+  // 动态生成列定义
+  const getColumns = () => {
+    const formFields = getActiveFormFields()
+    const hasFormFields = formFields.length > 0
+    
+    const baseColumns = [
+      {
+        title: '状态',
+        dataIndex: 'status',
+        key: 'status',
+        width: 100,
+        render: (status: string) => (
+          <Tag color={
+            status === '已联系' ? 'success' : 
+            status === '信息不完整' ? 'default' : 
+            'warning'
+          }>
+            {status}
+          </Tag>
+        ),
+        filters: [
+          { text: '已联系', value: '已联系' },
+          { text: '未联系', value: '未联系' },
+          { text: '信息不完整', value: '信息不完整' },
+        ],
+        onFilter: (value: any, record: any) => record.status === value,
+      },
+      {
+        title: '提交时间',
+        dataIndex: 'createdAt',
+        key: 'createdAt',
+        width: 150,
+        render: (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm'),
+        sorter: (a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+      },
+      {
+        title: '操作',
+        key: 'action',
+        width: 200,
+        fixed: 'right' as const,
+        render: (text: any, record: any) => (
+          <Space size="small">
             <Button
               type="link"
-              icon={<CheckOutlined />}
-              onClick={() => handleStatusChange(record.id, '已联系')}
+              icon={<EyeOutlined />}
+              onClick={() => handleViewDetail(record)}
             >
-              标记已联系
+              查看
             </Button>
-          )}
-          <Button
-            type="link"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => handleDelete(record.id)}
-          >
-            删除
-          </Button>
-        </Space>
-      ),
-    },
-  ]
+            {record.status === '未联系' && (
+              <Button
+                type="link"
+                icon={<CheckOutlined />}
+                onClick={() => handleStatusChange(record.id, '已联系')}
+              >
+                标记已联系
+              </Button>
+            )}
+            <Button
+              type="link"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => handleDelete(record.id)}
+            >
+              删除
+            </Button>
+          </Space>
+        ),
+      },
+    ]
+
+    if (hasFormFields) {
+      // 使用动态字段
+      const dynamicColumns = formFields.map(field => ({
+        title: field.fieldLabel,
+        dataIndex: field.fieldName,
+        key: field.fieldName,
+        width: 120,
+        ellipsis: true,
+        render: (value: any, record: any) => {
+          // 优先从formData中获取值，如果没有则从直接字段获取
+          const formDataValue = record.formData?.[field.fieldName]
+          const directValue = record[field.fieldName]
+          return formDataValue || directValue || '-'
+        },
+        // 为某些字段添加筛选器
+        ...(field.fieldName === 'city' && {
+          filters: Array.from(new Set(inquiries.map(i => i.city))).map(city => ({
+            text: city,
+            value: city,
+          })),
+          onFilter: (value: any, record: any) => record.city === value,
+        }),
+        ...(field.fieldName === 'grade' && {
+          filters: [
+            { text: '小学', value: '小学' },
+            { text: '初中', value: '初中' },
+            { text: '高中', value: '高中' },
+          ],
+          onFilter: (value: any, record: any) => record.grade === value,
+        }),
+      }))
+      
+      return [...dynamicColumns, ...baseColumns]
+    } else {
+      // 回退到固定字段
+      const fallbackColumns = [
+        {
+          title: '城市',
+          dataIndex: 'city',
+          key: 'city',
+          width: 100,
+          filters: Array.from(new Set(inquiries.map(i => i.city))).map(city => ({
+            text: city,
+            value: city,
+          })),
+          onFilter: (value: any, record: any) => record.city === value,
+        },
+        {
+          title: '学段',
+          dataIndex: 'grade',
+          key: 'grade',
+          width: 100,
+          filters: [
+            { text: '小学', value: '小学' },
+            { text: '初中', value: '初中' },
+            { text: '高中', value: '高中' },
+          ],
+          onFilter: (value: any, record: any) => record.grade === value,
+        },
+        {
+          title: '性别',
+          dataIndex: 'studentGender',
+          key: 'studentGender',
+          width: 80,
+        },
+        {
+          title: '身份',
+          dataIndex: 'identity',
+          key: 'identity',
+          width: 80,
+        },
+        {
+          title: '联系电话',
+          dataIndex: 'phone',
+          key: 'phone',
+          width: 120,
+        },
+      ]
+      
+      return [...fallbackColumns, ...baseColumns]
+    }
+  }
 
   return (
     <div>
@@ -213,9 +313,10 @@ export default function InquiryManagement() {
 
       <Table
         dataSource={getDisplayInquiries()}
-        columns={columns}
+        columns={getColumns()}
         rowKey="id"
         loading={loading}
+        scroll={{ x: 1200 }}
         pagination={{
           pageSize: 20,
           showSizeChanger: true,
@@ -233,26 +334,67 @@ export default function InquiryManagement() {
       >
         {selectedInquiry && (
           <div className="space-y-4">
-            <div>
-              <label className="font-semibold">城市：</label>
-              <span>{selectedInquiry.city}</span>
-            </div>
-            <div>
-              <label className="font-semibold">学段：</label>
-              <span>{selectedInquiry.grade}</span>
-            </div>
-            <div>
-              <label className="font-semibold">学生性别：</label>
-              <span>{selectedInquiry.studentGender}</span>
-            </div>
-            <div>
-              <label className="font-semibold">咨询身份：</label>
-              <span>{selectedInquiry.identity}</span>
-            </div>
-            <div>
-              <label className="font-semibold">联系电话：</label>
-              <span>{selectedInquiry.phone}</span>
-            </div>
+            {(() => {
+              const formFields = getActiveFormFields()
+              const hasFormFields = formFields.length > 0
+              
+              if (hasFormFields) {
+                // 使用动态字段
+                const fieldsWithValues = formFields.filter(field => {
+                  const formDataValue = selectedInquiry.formData?.[field.fieldName]
+                  const directValue = selectedInquiry[field.fieldName]
+                  return formDataValue || directValue
+                })
+                
+                return (
+                  <>
+                    <Row gutter={16}>
+                      {fieldsWithValues.map((field) => {
+                        const formDataValue = selectedInquiry.formData?.[field.fieldName]
+                        const directValue = selectedInquiry[field.fieldName]
+                        const displayValue = formDataValue || directValue || '-'
+                        
+                        return (
+                          <Col key={field.fieldName} span={12} className="mb-3">
+                            <div>
+                              <label className="font-semibold text-gray-600">{field.fieldLabel}：</label>
+                              <div className="mt-1 text-gray-800">{displayValue}</div>
+                            </div>
+                          </Col>
+                        )
+                      })}
+                    </Row>
+                  </>
+                )
+              } else {
+                // 回退到固定字段显示
+                return (
+                  <>
+                    <div>
+                      <label className="font-semibold">城市：</label>
+                      <span>{selectedInquiry.city}</span>
+                    </div>
+                    <div>
+                      <label className="font-semibold">学段：</label>
+                      <span>{selectedInquiry.grade}</span>
+                    </div>
+                    <div>
+                      <label className="font-semibold">学生性别：</label>
+                      <span>{selectedInquiry.studentGender}</span>
+                    </div>
+                    <div>
+                      <label className="font-semibold">咨询身份：</label>
+                      <span>{selectedInquiry.identity}</span>
+                    </div>
+                    <div>
+                      <label className="font-semibold">联系电话：</label>
+                      <span>{selectedInquiry.phone}</span>
+                    </div>
+                  </>
+                )
+              }
+            })()}
+            
             <div>
               <label className="font-semibold">状态：</label>
               <Tag color={selectedInquiry.status === '已联系' ? 'success' : 'warning'}>
