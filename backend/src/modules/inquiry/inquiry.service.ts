@@ -72,9 +72,20 @@ export class InquiryService {
 
   // 更新咨询记录
   async update(id: string, updateInquiryDto: UpdateInquiryDto) {
+    const updateData: any = { ...updateInquiryDto };
+    
+    // 如果状态更新为"已联系"，同时更新联系时间
+    if (updateInquiryDto.status === '已联系') {
+      updateData.contactTime = new Date();
+    }
+    // 如果状态更新为"未联系"，清空联系时间
+    else if (updateInquiryDto.status === '未联系') {
+      updateData.contactTime = null;
+    }
+    
     return this.prisma.inquiry.update({
       where: { id },
-      data: updateInquiryDto,
+      data: updateData,
     });
   }
 
@@ -95,6 +106,32 @@ export class InquiryService {
       where: { status: '未联系' },
     });
 
+    // 今日新增统计
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const todayNew = await this.prisma.inquiry.count({
+      where: {
+        createdAt: {
+          gte: today,
+          lt: tomorrow,
+        },
+      },
+    });
+
+    // 今日已联系统计
+    const todayContacted = await this.prisma.inquiry.count({
+      where: {
+        status: '已联系',
+        contactTime: {
+          gte: today,
+          lt: tomorrow,
+        },
+      },
+    });
+
     // 按城市统计
     const byCity = await this.prisma.inquiry.groupBy({
       by: ['city'],
@@ -111,6 +148,8 @@ export class InquiryService {
       total,
       contacted,
       uncontacted,
+      todayNew,
+      todayContacted,
       byCity,
       byGrade,
     };

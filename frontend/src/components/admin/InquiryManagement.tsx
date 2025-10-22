@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Table, Tag, Button, Space, Select, DatePicker, message, Modal, Form, Input, Switch, Row, Col, Popconfirm } from 'antd'
-import { EyeOutlined, DeleteOutlined, CheckOutlined, FormOutlined, EditOutlined } from '@ant-design/icons'
+import { EyeOutlined, DeleteOutlined, CheckOutlined, FormOutlined, EditOutlined, UndoOutlined } from '@ant-design/icons'
 import { getInquiries, updateInquiry, deleteInquiry, getFormTemplates } from '@/lib/api'
 import dayjs from 'dayjs'
 import QuickFormModal from './QuickFormModal'
@@ -194,10 +194,28 @@ export default function InquiryManagement() {
       {
         title: '操作',
         key: 'action',
-        width: 220,
+        width: 280,
         fixed: 'right' as const,
         render: (text: any, record: any) => (
           <Space size="small">
+            {record.status === '未联系' && (
+              <Button
+                type="link"
+                icon={<CheckOutlined />}
+                onClick={() => handleStatusChange(record.id, '已联系')}
+              >
+                标记已联系
+              </Button>
+            )}
+            {record.status === '已联系' && (
+              <Button
+                type="link"
+                icon={<UndoOutlined />}
+                onClick={() => handleStatusChange(record.id, '未联系')}
+              >
+                撤回联系
+              </Button>
+            )}
             <Button
               type="link"
               icon={<EyeOutlined />}
@@ -212,15 +230,6 @@ export default function InquiryManagement() {
             >
               编辑表单
             </Button>
-            {record.status === '未联系' && (
-              <Button
-                type="link"
-                icon={<CheckOutlined />}
-                onClick={() => handleStatusChange(record.id, '已联系')}
-              >
-                标记已联系
-              </Button>
-            )}
             <Button
               type="link"
               danger
@@ -475,6 +484,12 @@ export default function InquiryManagement() {
               <label className="font-semibold">提交时间：</label>
               <span>{dayjs(selectedInquiry.createdAt).format('YYYY-MM-DD HH:mm:ss')}</span>
             </div>
+            {selectedInquiry.contactTime && (
+              <div>
+                <label className="font-semibold">联系时间：</label>
+                <span>{dayjs(selectedInquiry.contactTime).format('YYYY-MM-DD HH:mm:ss')}</span>
+              </div>
+            )}
             {selectedInquiry.notes && (
               <div>
                 <label className="font-semibold">备注：</label>

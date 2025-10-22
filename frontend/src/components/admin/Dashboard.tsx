@@ -75,7 +75,7 @@ export default function Dashboard() {
         <Col span={6}>
           <Card>
             <Statistic
-              title="总咨询数"
+              title="总预约数"
               value={stats.total || 0}
               prefix={<UserOutlined />}
               valueStyle={{ color: '#3f8600' }}
@@ -85,7 +85,7 @@ export default function Dashboard() {
         <Col span={6}>
           <Card>
             <Statistic
-              title="已联系"
+              title="总已联系数"
               value={stats.contacted || 0}
               prefix={<CheckCircleOutlined />}
               valueStyle={{ color: '#52c41a' }}
@@ -95,41 +95,25 @@ export default function Dashboard() {
         <Col span={6}>
           <Card>
             <Statistic
-              title="未联系"
-              value={stats.uncontacted || 0}
-              prefix={<ClockCircleOutlined />}
-              valueStyle={{ color: '#faad14' }}
+              title="今日新增预约数"
+              value={stats.todayNew || 0}
+              prefix={<PhoneOutlined />}
+              valueStyle={{ color: '#1890ff' }}
             />
           </Card>
         </Col>
         <Col span={6}>
           <Card>
             <Statistic
-              title="今日新增"
-              value={0}
-              prefix={<PhoneOutlined />}
-              valueStyle={{ color: '#1890ff' }}
+              title="今日已联系数"
+              value={stats.todayContacted || 0}
+              prefix={<CheckCircleOutlined />}
+              valueStyle={{ color: '#fa8c16' }}
             />
           </Card>
         </Col>
       </Row>
 
-      {/* 城市分布 */}
-      {stats.byCity && stats.byCity.length > 0 && (
-        <Card title="城市分布" className="mb-6">
-          <Row gutter={16}>
-            {stats.byCity.map((item: any) => (
-              <Col span={6} key={item.city}>
-                <Statistic
-                  title={item.city}
-                  value={item._count}
-                  suffix="条"
-                />
-              </Col>
-            ))}
-          </Row>
-        </Card>
-      )}
 
       {/* 数据趋势分析 */}
       <div className="mb-6">
