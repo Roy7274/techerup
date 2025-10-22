@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Card, Row, Col, Statistic, Table, Tag } from 'antd'
 import { UserOutlined, PhoneOutlined, CheckCircleOutlined, ClockCircleOutlined } from '@ant-design/icons'
 import { getInquiryStats, getInquiries } from '@/lib/api'
+import DataOverviewCharts from '@/components/DataOverviewCharts'
 import dayjs from 'dayjs'
 
 export default function Dashboard() {
@@ -129,6 +130,11 @@ export default function Dashboard() {
           </Row>
         </Card>
       )}
+
+      {/* 数据趋势分析 */}
+      <div className="mb-6">
+        <DataOverviewCharts />
+      </div>
 
       {/* 最近咨询 */}
       <Card title="最近咨询">

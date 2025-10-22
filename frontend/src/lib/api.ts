@@ -41,6 +41,8 @@ export const getInquiry = (id: string) => api.get(`/inquiries/${id}`)
 export const updateInquiry = (id: string, data: any) => api.patch(`/inquiries/${id}`, data)
 export const deleteInquiry = (id: string) => api.delete(`/inquiries/${id}`)
 export const getInquiryStats = () => api.get('/inquiries/stats')
+export const getTrendData = (params: { startDate: string; endDate: string; groupBy: 'daily' | 'monthly' }) =>
+  api.get('/inquiries/trend', { params })
 
 // ===== 对话 API =====
 export const sendMessage = (data: { sessionId: string; message: string; metadata?: any }) =>

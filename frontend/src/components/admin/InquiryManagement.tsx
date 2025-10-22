@@ -1,10 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Table, Tag, Button, Space, Select, DatePicker, message, Modal, Form, Input, Switch, Row, Col } from 'antd'
-import { EyeOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons'
+import { Table, Tag, Button, Space, Select, DatePicker, message, Modal, Form, Input, Switch, Row, Col, Popconfirm } from 'antd'
+import { EyeOutlined, DeleteOutlined, CheckOutlined, FormOutlined, EditOutlined } from '@ant-design/icons'
 import { getInquiries, updateInquiry, deleteInquiry, getFormTemplates } from '@/lib/api'
 import dayjs from 'dayjs'
+import QuickFormModal from './QuickFormModal'
+import UnifiedFormModal from '../UnifiedFormModal'
 
 const { RangePicker } = DatePicker
 
@@ -38,6 +40,10 @@ export default function InquiryManagement() {
   const [showIncomplete, setShowIncomplete] = useState(false) // 默认不显示信息不完整的咨询
   const [formTemplates, setFormTemplates] = useState<FormTemplate[]>([])
   const [templateLoading, setTemplateLoading] = useState(false)
+  const [quickFormVisible, setQuickFormVisible] = useState(false)
+  const [editFormVisible, setEditFormVisible] = useState(false)
+  const [editingInquiry, setEditingInquiry] = useState<any | null>(null)
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
 
   useEffect(() => {
     loadInquiries()
@@ -117,6 +123,39 @@ export default function InquiryManagement() {
     setDetailVisible(true)
   }
 
+  const handleOpenQuickForm = () => {
+    setQuickFormVisible(true)
+  }
+
+  const handleEditInquiry = (record: any) => {
+    setEditingInquiry(record)
+    setEditFormVisible(true)
+  }
+
+  const handleBatchMarkContacted = async () => {
+    if (selectedRowKeys.length === 0) return
+    try {
+      await Promise.all(selectedRowKeys.map((id) => updateInquiry(String(id), { status: '已联系' })))
+      message.success('批量标记成功')
+      setSelectedRowKeys([])
+      loadInquiries()
+    } catch (error) {
+      message.error('批量标记失败')
+    }
+  }
+
+  const handleBatchDelete = async () => {
+    if (selectedRowKeys.length === 0) return
+    try {
+      await Promise.all(selectedRowKeys.map((id) => deleteInquiry(String(id))))
+      message.success('批量删除成功')
+      setSelectedRowKeys([])
+      loadInquiries()
+    } catch (error) {
+      message.error('批量删除失败')
+    }
+  }
+
   // 动态生成列定义
   const getColumns = () => {
     const formFields = getActiveFormFields()
@@ -155,7 +194,7 @@ export default function InquiryManagement() {
       {
         title: '操作',
         key: 'action',
-        width: 200,
+        width: 220,
         fixed: 'right' as const,
         render: (text: any, record: any) => (
           <Space size="small">
@@ -165,6 +204,13 @@ export default function InquiryManagement() {
               onClick={() => handleViewDetail(record)}
             >
               查看
+            </Button>
+            <Button
+              type="link"
+              icon={<EditOutlined />}
+              onClick={() => handleEditInquiry(record)}
+            >
+              编辑表单
             </Button>
             {record.status === '未联系' && (
               <Button
@@ -276,6 +322,9 @@ export default function InquiryManagement() {
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">咨询管理</h2>
         <Space>
+          <Button type="primary" icon={<FormOutlined />} onClick={handleOpenQuickForm}>
+            手动录入表单
+          </Button>
           <Space>
             <Switch 
               checked={showIncomplete}
@@ -316,12 +365,33 @@ export default function InquiryManagement() {
         columns={getColumns()}
         rowKey="id"
         loading={loading}
+        rowSelection={{
+          selectedRowKeys,
+          onChange: setSelectedRowKeys,
+        }}
         scroll={{ x: 1200 }}
         pagination={{
           pageSize: 20,
           showSizeChanger: true,
           showTotal: (total) => `共 ${total} 条${!showIncomplete ? '（已隐藏信息不完整的咨询）' : ''}`,
         }}
+        title={() => (
+          <Space>
+            <span>已选 {selectedRowKeys.length} 项</span>
+            <Button disabled={selectedRowKeys.length === 0} icon={<CheckOutlined />} onClick={handleBatchMarkContacted}>
+              批量标记已联系
+            </Button>
+            <Popconfirm
+              title="确认批量删除"
+              description={`确定删除选中的 ${selectedRowKeys.length} 条咨询记录吗？`}
+              onConfirm={handleBatchDelete}
+              okText="确定"
+              cancelText="取消"
+            >
+              <Button danger disabled={selectedRowKeys.length === 0} icon={<DeleteOutlined />}>批量删除</Button>
+            </Popconfirm>
+          </Space>
+        )}
       />
 
       {/* 详情弹窗 */}
@@ -427,6 +497,38 @@ export default function InquiryManagement() {
           </div>
         )}
       </Modal>
+
+      {/* 手动录入表单（新建） */}
+      <QuickFormModal
+        visible={quickFormVisible}
+        onClose={() => setQuickFormVisible(false)}
+      />
+
+      {/* 表单再编辑（编辑现有咨询） */}
+      <UnifiedFormModal
+        visible={editFormVisible}
+        onClose={() => {
+          setEditFormVisible(false)
+          setEditingInquiry(null)
+        }}
+        title="编辑咨询表单"
+        showExtractedInfo={false}
+        showSaveDraft={false}
+        initialValues={(() => {
+          if (!editingInquiry) return undefined as any
+          const formFields = getActiveFormFields()
+          const result: any = {}
+          formFields.forEach((f) => {
+            const v = editingInquiry.formData?.[f.fieldName] ?? editingInquiry[f.fieldName]
+            if (v !== undefined && v !== null && v !== '') result[f.fieldName] = v
+          })
+          return result
+        })()}
+        inquiryId={editingInquiry?.id}
+        onSubmitted={() => {
+          loadInquiries()
+        }}
+      />
     </div>
   )
 }
