@@ -102,20 +102,30 @@ export default function AutoReplyManagement() {
   const [editingTemplate, setEditingTemplate] = useState<FormTemplate | null>(null)
   const [templateForm] = Form.useForm()
   const [templateFields, setTemplateFields] = useState<FormField[]>([])
+  const [defaultTemplateChecked, setDefaultTemplateChecked] = useState(false)
 
   useEffect(() => {
     loadAutoReplies()
     loadFormTemplates()
-    ensureDefaultFormTemplate()
-  }, [])
+    // 只在首次加载时检查默认模板
+    if (!defaultTemplateChecked) {
+      ensureDefaultFormTemplate()
+    }
+  }, [defaultTemplateChecked])
 
   // 确保存在默认表单模板
   const ensureDefaultFormTemplate = async () => {
     try {
+      // 标记已检查过，避免重复检查
+      setDefaultTemplateChecked(true)
+      
       const templates = await getFormTemplates(false)
-      const hasDefault = templates.data && templates.data.some((t: any) => t.name === '预约试听表单')
+      // 修复：检查 templates 结构，确保正确访问数据
+      const templateList = templates.data || templates || []
+      const hasDefault = templateList.some((t: any) => t.name === '预约试听表单')
       
       if (!hasDefault) {
+        console.log('未找到默认表单模板，正在创建...')
         // 创建默认表单模板
         await createFormTemplate({
           name: '预约试听表单',
@@ -170,9 +180,13 @@ export default function AutoReplyManagement() {
         })
         message.success('已自动创建默认表单模板')
         loadFormTemplates()
+      } else {
+        console.log('默认表单模板已存在，跳过创建')
       }
     } catch (error) {
       console.error('创建默认表单模板失败:', error)
+      // 即使出错也要标记为已检查，避免重复尝试
+      setDefaultTemplateChecked(true)
     }
   }
 
