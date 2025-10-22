@@ -57,6 +57,8 @@ export const getPendingAgentSessions = () =>
   api.get('/conversations/pending-agent-sessions')
 export const archiveSession = (sessionId: string) =>
   api.post('/conversations/session/archive', { sessionId })
+export const deleteSession = (sessionId: string) =>
+  api.post('/conversations/session/delete', { sessionId })
 
 // ===== 轮播图 API =====
 export const getBanners = (activeOnly: boolean = true) =>

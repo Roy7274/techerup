@@ -98,6 +98,11 @@ export class ConversationController {
     return this.conversationService.archiveSession(body.sessionId);
   }
 
+  @Post('session/delete')
+  async deleteSession(@Body() body: { sessionId: string }) {
+    return this.conversationService.deleteSession(body.sessionId);
+  }
+
   @Post('session/user-leave')
   async handleUserLeave(@Body() body: { sessionId: string }) {
     return this.conversationService.handleUserLeaveSession(body.sessionId);
