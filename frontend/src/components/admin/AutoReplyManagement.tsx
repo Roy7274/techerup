@@ -102,20 +102,30 @@ export default function AutoReplyManagement() {
   const [editingTemplate, setEditingTemplate] = useState<FormTemplate | null>(null)
   const [templateForm] = Form.useForm()
   const [templateFields, setTemplateFields] = useState<FormField[]>([])
+  const [defaultTemplateChecked, setDefaultTemplateChecked] = useState(false)
 
   useEffect(() => {
     loadAutoReplies()
     loadFormTemplates()
-    ensureDefaultFormTemplate()
-  }, [])
+    // 只在首次加载时检查默认模板
+    if (!defaultTemplateChecked) {
+      ensureDefaultFormTemplate()
+    }
+  }, [defaultTemplateChecked])
 
   // 确保存在默认表单模板
   const ensureDefaultFormTemplate = async () => {
     try {
+      // 标记已检查过，避免重复检查
+      setDefaultTemplateChecked(true)
+      
       const templates = await getFormTemplates(false)
-      const hasDefault = templates.some((t: any) => t.name === '预约试听表单')
+      // 修复：检查 templates 结构，确保正确访问数据
+      const templateList = templates.data || templates || []
+      const hasDefault = templateList.some((t: any) => t.name === '预约试听表单')
       
       if (!hasDefault) {
+        console.log('未找到默认表单模板，正在创建...')
         // 创建默认表单模板
         await createFormTemplate({
           name: '预约试听表单',
@@ -170,9 +180,13 @@ export default function AutoReplyManagement() {
         })
         message.success('已自动创建默认表单模板')
         loadFormTemplates()
+      } else {
+        console.log('默认表单模板已存在，跳过创建')
       }
     } catch (error) {
       console.error('创建默认表单模板失败:', error)
+      // 即使出错也要标记为已检查，避免重复尝试
+      setDefaultTemplateChecked(true)
     }
   }
 
@@ -332,12 +346,35 @@ export default function AutoReplyManagement() {
     try {
       const values = await templateForm.validateFields()
       
+      // 过滤掉无效的字段（空字段名或标签）
+      const validFields = templateFields.filter(field => 
+        field.fieldName && field.fieldName.trim() && 
+        field.fieldLabel && field.fieldLabel.trim()
+      )
+      
+      // 如果有无效字段，提示用户
+      if (templateFields.length > 0 && validFields.length !== templateFields.length) {
+        message.warning('请填写完整的字段信息（字段名和标签不能为空）')
+        return
+      }
+      
+      // 确保字段数据格式正确
+      const processedFields = validFields.map((field, index) => ({
+        fieldName: field.fieldName.trim(),
+        fieldLabel: field.fieldLabel.trim(),
+        fieldType: field.fieldType || 'text',
+        options: field.options || undefined,
+        placeholder: field.placeholder?.trim() || undefined,
+        required: field.required === true, // 保持用户设置的必填状态
+        order: index,
+      }))
+      
       const payload = {
         name: values.name,
         description: values.description,
         order: values.order || 0,
         isActive: values.isActive !== false,
-        fields: templateFields,
+        fields: processedFields,
       }
 
       if (editingTemplate) {
@@ -354,6 +391,7 @@ export default function AutoReplyManagement() {
       setTemplateFields([])
       loadFormTemplates()
     } catch (error) {
+      console.error('提交失败:', error)
       message.error('提交失败')
     }
   }
@@ -362,10 +400,10 @@ export default function AutoReplyManagement() {
     setTemplateFields([
       ...templateFields,
       {
-        fieldName: '',
-        fieldLabel: '',
+        fieldName: `field_${templateFields.length + 1}`,
+        fieldLabel: `字段${templateFields.length + 1}`,
         fieldType: 'text',
-        required: true,
+        required: false, // 默认非必填，让用户自主决定
         order: templateFields.length,
       },
     ])
@@ -379,6 +417,17 @@ export default function AutoReplyManagement() {
 
   const handleRemoveField = (index: number) => {
     setTemplateFields(templateFields.filter((_, i) => i !== index))
+  }
+
+  // 验证字段是否有效
+  const isFieldValid = (field: FormField) => {
+    return field.fieldName && field.fieldName.trim() && 
+           field.fieldLabel && field.fieldLabel.trim()
+  }
+
+  // 获取无效字段数量
+  const getInvalidFieldsCount = () => {
+    return templateFields.filter(field => !isFieldValid(field)).length
   }
 
   // 自动回复表格列
@@ -598,7 +647,7 @@ export default function AutoReplyManagement() {
                 <p><strong>触发类型说明：</strong></p>
                 <ul style={{ marginBottom: 16, paddingLeft: 20 }}>
                   <li><strong>欢迎语</strong>：用户首次进入时发送，建议设置高优先级（如100）</li>
-                  <li><strong>关键词触发</strong>：匹配用户消息中的关键词时触发，如"价格"、"费用"等</li>
+                  <li><strong>关键词触发</strong>：匹配用户消息中的关键词时触发，如&quot;价格&quot;、&quot;费用&quot;等</li>
                   <li><strong>定时询问</strong>：按优先级顺序发送的询问消息，用于收集用户信息（城市→学段→性别→身份→电话）</li>
                   <li><strong>默认回复</strong>：当没有其他匹配时的回复，建议设置低优先级（如10）</li>
                 </ul>
@@ -651,14 +700,24 @@ export default function AutoReplyManagement() {
               size="small"
               type="inner"
             >
-              <p>当前使用固定的"预约试听表单"模板，包含以下字段：</p>
-              <ul style={{ marginBottom: 0, paddingLeft: 20 }}>
-                <li>所在城市（文本输入）</li>
-                <li>学段（下拉选择：小学/初中/高中）</li>
-                <li>学生性别（下拉选择：男孩/女孩）</li>
-                <li>咨询身份（下拉选择：本人/家长）</li>
-                <li>联系电话（手机号输入）</li>
-              </ul>
+              <div style={{ fontSize: '14px', lineHeight: '1.6' }}>
+                <p><strong>字段配置要求：</strong></p>
+                <ul style={{ marginBottom: 16, paddingLeft: 20 }}>
+                  <li><strong>字段名</strong>：用于数据存储，如 phone、city（必填，英文）</li>
+                  <li><strong>字段标签</strong>：用户看到的标签，如"联系电话"、"所在城市"（必填）</li>
+                  <li><strong>字段类型</strong>：text（文本）、tel（电话）、select（下拉）、radio（单选）、checkbox（多选）</li>
+                  <li><strong>必填设置</strong>：由您决定该字段是否必填，影响用户填写时的验证</li>
+                  <li><strong>选项配置</strong>：下拉、单选、多选类型需要配置选项，格式如：["选项1","选项2"]</li>
+                </ul>
+                <p><strong>默认模板字段：</strong></p>
+                <ul style={{ marginBottom: 0, paddingLeft: 20 }}>
+                  <li>所在城市（文本输入）</li>
+                  <li>学段（下拉选择：小学/初中/高中）</li>
+                  <li>学生性别（下拉选择：男孩/女孩）</li>
+                  <li>咨询身份（下拉选择：本人/家长）</li>
+                  <li>联系电话（手机号输入）</li>
+                </ul>
+              </div>
             </Card>
             <Table
               columns={templateColumns}
@@ -907,6 +966,14 @@ export default function AutoReplyManagement() {
           <Divider>表单字段</Divider>
 
           <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span>表单字段配置</span>
+              {getInvalidFieldsCount() > 0 && (
+                <span style={{ color: '#ff4d4f', fontSize: '12px' }}>
+                  有 {getInvalidFieldsCount()} 个字段需要完善信息
+                </span>
+              )}
+            </div>
             <Button type="dashed" onClick={handleAddField} block>
               <PlusOutlined /> 添加字段
             </Button>
@@ -917,6 +984,17 @@ export default function AutoReplyManagement() {
               key={index}
               size="small"
               style={{ marginBottom: 12 }}
+              title={
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span>字段 {index + 1}</span>
+                  {field.required && (
+                    <Tag color="red" size="small">必填</Tag>
+                  )}
+                  {!isFieldValid(field) && (
+                    <Tag color="orange" size="small">需要完善</Tag>
+                  )}
+                </div>
+              }
               extra={
                 <Button
                   type="link"
@@ -936,6 +1014,7 @@ export default function AutoReplyManagement() {
                       handleFieldChange(index, 'fieldName', e.target.value)
                     }
                     style={{ width: 150 }}
+                    status={!field.fieldName || !field.fieldName.trim() ? 'error' : ''}
                   />
                   <Input
                     placeholder="字段标签（如：联系电话）"
@@ -944,6 +1023,7 @@ export default function AutoReplyManagement() {
                       handleFieldChange(index, 'fieldLabel', e.target.value)
                     }
                     style={{ width: 150 }}
+                    status={!field.fieldLabel || !field.fieldLabel.trim() ? 'error' : ''}
                   />
                   <Select
                     value={field.fieldType}
@@ -958,13 +1038,16 @@ export default function AutoReplyManagement() {
                     <Select.Option value="radio">单选</Select.Option>
                     <Select.Option value="checkbox">多选</Select.Option>
                   </Select>
-                  <span>必填：</span>
-                  <Switch
-                    checked={field.required}
-                    onChange={(checked) =>
-                      handleFieldChange(index, 'required', checked)
-                    }
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ fontSize: '12px' }}>必填：</span>
+                    <Switch
+                      size="small"
+                      checked={field.required}
+                      onChange={(checked) =>
+                        handleFieldChange(index, 'required', checked)
+                      }
+                    />
+                  </div>
                 </Space>
                 <Input
                   placeholder="占位符文本"

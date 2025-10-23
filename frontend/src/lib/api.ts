@@ -1,6 +1,7 @@
 import axios from 'axios'
+import config from './config'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+const API_URL = config.API_URL
 
 const api = axios.create({
   baseURL: `${API_URL}/api`,
@@ -40,6 +41,8 @@ export const getInquiry = (id: string) => api.get(`/inquiries/${id}`)
 export const updateInquiry = (id: string, data: any) => api.patch(`/inquiries/${id}`, data)
 export const deleteInquiry = (id: string) => api.delete(`/inquiries/${id}`)
 export const getInquiryStats = () => api.get('/inquiries/stats')
+export const getTrendData = (params: { startDate: string; endDate: string; groupBy: 'daily' | 'monthly' }) =>
+  api.get('/inquiries/trend', { params })
 
 // ===== 对话 API =====
 export const sendMessage = (data: { sessionId: string; message: string; metadata?: any }) =>
@@ -56,6 +59,8 @@ export const getPendingAgentSessions = () =>
   api.get('/conversations/pending-agent-sessions')
 export const archiveSession = (sessionId: string) =>
   api.post('/conversations/session/archive', { sessionId })
+export const deleteSession = (sessionId: string) =>
+  api.post('/conversations/session/delete', { sessionId })
 
 // ===== 轮播图 API =====
 export const getBanners = (activeOnly: boolean = true) =>

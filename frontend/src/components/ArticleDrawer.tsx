@@ -6,7 +6,9 @@ import { EyeOutlined, ClockCircleOutlined } from '@ant-design/icons'
 import { getArticle } from '@/lib/api'
 
 const { Title, Paragraph, Text } = Typography
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+import config from '@/lib/config'
+
+const API_URL = config.API_URL
 
 interface ArticleDrawerProps {
   visible: boolean

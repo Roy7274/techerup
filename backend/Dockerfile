@@ -1,13 +1,14 @@
 # Backend Dockerfile
-FROM node:18-alpine
+FROM docker.m.daocloud.io/library/node:18-alpine
 
 # Set working directory
 WORKDIR /app
 
-# Install dependencies
+# Copy package files
 COPY package*.json ./
-COPY pnpm-lock.yaml* ./
-RUN npm install -g pnpm && pnpm install --frozen-lockfile
+
+# Install dependencies
+RUN npm install -g pnpm && pnpm install
 
 # Copy source code
 COPY . .
@@ -21,5 +22,5 @@ RUN pnpm build
 # Expose port
 EXPOSE 3001
 
-# Start the application
-CMD ["sh", "-c", "npx prisma migrate deploy && pnpm start:prod"]
+# Start the application with proper crypto support and database migration
+CMD ["sh", "-c", "npx prisma migrate deploy && node --experimental-global-webcrypto dist/main"]

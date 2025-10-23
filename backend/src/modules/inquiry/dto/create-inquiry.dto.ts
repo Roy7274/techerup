@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsPhoneNumber } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsPhoneNumber, IsDateString } from 'class-validator';
 
 export class CreateInquiryDto {
   @IsString()
@@ -24,6 +24,10 @@ export class CreateInquiryDto {
   @IsString()
   @IsOptional()
   status?: string;
+
+  @IsDateString()
+  @IsOptional()
+  contactTime?: string;
 
   @IsString()
   @IsOptional()

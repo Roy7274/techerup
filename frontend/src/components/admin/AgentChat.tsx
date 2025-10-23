@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Card, List, Input, Button, Badge, Avatar, Space, Empty, message as antMessage, Tooltip, Modal, Popconfirm, Alert } from 'antd'
-import { SendOutlined, UserOutlined, CustomerServiceOutlined, ReloadOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons'
-import { getConversations, sendAgentMessage, getActiveSessions, getPendingAgentSessions, archiveSession } from '@/lib/api'
+import { SendOutlined, UserOutlined, CustomerServiceOutlined, ReloadOutlined, PlusOutlined, DeleteOutlined, FileTextOutlined, FormOutlined } from '@ant-design/icons'
+import QuickFormModal from './QuickFormModal'
+import { getConversations, sendAgentMessage, getActiveSessions, getPendingAgentSessions, archiveSession, deleteSession } from '@/lib/api'
 import { 
   initSocket, 
   joinSession, 
@@ -37,6 +38,7 @@ export default function AgentChat() {
   const [inputValue, setInputValue] = useState('')
   const [loading, setLoading] = useState(false)
   const [userLeftAlert, setUserLeftAlert] = useState(false)
+  const [quickFormVisible, setQuickFormVisible] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // 自动滚动到底部
@@ -202,14 +204,14 @@ export default function AgentChat() {
     }
   }
 
-  // 归档（删除）会话
+  // 归档会话（保存聊天记录并创建咨询记录）
   const handleArchiveSession = async (sessionId: string) => {
     try {
       await archiveSession(sessionId)
-      antMessage.success('会话已归档')
+      antMessage.success('会话已归档，聊天记录已保存到咨询记录中')
       // 刷新会话列表
       await loadSessions()
-      // 如果删除的是当前选中的会话，清空选中状态
+      // 如果归档的是当前选中的会话，清空选中状态
       if (selectedSession === sessionId) {
         setSelectedSession(null)
         setMessages([])
@@ -221,8 +223,27 @@ export default function AgentChat() {
     }
   }
 
+  // 真正删除会话（移除无效聊天，不保存任何记录）
+  const handleDeleteSession = async (sessionId: string) => {
+    try {
+      await deleteSession(sessionId)
+      antMessage.success('会话已删除')
+      // 刷新会话列表
+      await loadSessions()
+      // 如果删除的是当前选中的会话，清空选中状态
+      if (selectedSession === sessionId) {
+        setSelectedSession(null)
+        setMessages([])
+        setUserLeftAlert(false)
+      }
+    } catch (error) {
+      console.error('删除会话失败:', error)
+      antMessage.error('删除会话失败')
+    }
+  }
+
   return (
-    <div className="flex h-[calc(100vh-200px)] gap-4">
+    <div className="flex h-[calc(100vh-200px)] gap-4 relative">
       {/* 左侧会话列表 */}
       <Card 
         title={
@@ -290,24 +311,48 @@ export default function AgentChat() {
                   onClick={() => handleSelectSession(session.sessionId)}
                   actions={[
                     <Popconfirm
-                      key="delete"
+                      key="archive"
                       title="归档会话"
-                      description="确定要归档此会话吗？对话记录将保存到咨询记录中。"
+                      description="确定要归档此会话吗？聊天记录将保存到咨询记录中，用于后续的预约表单生成。"
                       onConfirm={(e) => {
                         e?.stopPropagation()
                         handleArchiveSession(session.sessionId)
                       }}
                       onCancel={(e) => e?.stopPropagation()}
-                      okText="确定"
+                      okText="确定归档"
                       cancelText="取消"
                     >
-                      <Button
-                        type="text"
-                        danger
-                        size="small"
-                        icon={<DeleteOutlined />}
-                        onClick={(e) => e.stopPropagation()}
-                      />
+                      <Tooltip title="归档会话">
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<FileTextOutlined />}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ color: '#1890ff' }}
+                        />
+                      </Tooltip>
+                    </Popconfirm>,
+                    <Popconfirm
+                      key="delete"
+                      title="删除会话"
+                      description="确定要删除此会话吗？这将永久删除所有聊天记录，无法恢复。"
+                      onConfirm={(e) => {
+                        e?.stopPropagation()
+                        handleDeleteSession(session.sessionId)
+                      }}
+                      onCancel={(e) => e?.stopPropagation()}
+                      okText="确定删除"
+                      cancelText="取消"
+                    >
+                      <Tooltip title="删除会话">
+                        <Button
+                          type="text"
+                          danger
+                          size="small"
+                          icon={<DeleteOutlined />}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </Tooltip>
                     </Popconfirm>
                   ]}
                 >
@@ -483,6 +528,36 @@ export default function AgentChat() {
           </div>
         )}
       </Card>
+
+      {/* 悬浮表单按钮 */}
+      {selectedSession && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <Tooltip title="快速录入表单" placement="left">
+            <Button
+              type="primary"
+              shape="circle"
+              size="large"
+              icon={<FormOutlined />}
+              onClick={() => setQuickFormVisible(true)}
+              className="shadow-lg hover:shadow-xl transition-shadow"
+              style={{
+                width: 56,
+                height: 56,
+                backgroundColor: '#1890ff',
+                borderColor: '#1890ff'
+              }}
+            />
+          </Tooltip>
+        </div>
+      )}
+
+      {/* 快速表单模态框 */}
+      <QuickFormModal
+        visible={quickFormVisible}
+        onClose={() => setQuickFormVisible(false)}
+        sessionId={selectedSession || undefined}
+        messages={messages}
+      />
     </div>
   )
 }

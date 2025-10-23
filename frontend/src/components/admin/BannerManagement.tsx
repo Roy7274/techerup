@@ -5,8 +5,9 @@ import { Table, Button, Space, Modal, Form, Input, Switch, message, Upload } fro
 import { PlusOutlined, EditOutlined, DeleteOutlined, InboxOutlined } from '@ant-design/icons'
 import { getBanners, createBanner, updateBanner, deleteBanner, reorderBanners, uploadBannerImage } from '@/lib/api'
 import type { UploadFile, UploadProps } from 'antd'
+import config from '@/lib/config'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+const API_URL = config.API_URL
 
 export default function BannerManagement() {
   const [banners, setBanners] = useState<any[]>([])

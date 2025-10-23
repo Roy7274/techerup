@@ -8,8 +8,9 @@ import BookingModal from '@/components/BookingModal'
 import ArticleDrawer from '@/components/ArticleDrawer'
 import MerchantInfoDrawer from '@/components/MerchantInfoDrawer'
 import { getMerchantInfo, getBanners, getContentModules } from '@/lib/api'
+import config from '@/lib/config'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+const API_URL = config.API_URL
 
 export default function Home() {
   const [chatVisible, setChatVisible] = useState(false)
@@ -347,17 +348,23 @@ export default function Home() {
         />
       </section>
 
-      {/* 预约按钮 - 右上角悬浮 */}
-      <div className="fixed top-3 right-3 z-50">
+      {/* 预约按钮 - 右上角悬浮，根据头部状态调整位置 */}
+      <div className={`fixed right-3 z-50 transition-all duration-300 ${
+        headerCollapsed ? 'top-16' : 'top-3'
+      }`}>
         <Button
           type="primary"
-          size="middle"
+          size={headerCollapsed ? "small" : "middle"}
           shape="round"
           icon={<PhoneOutlined />}
           onClick={() => setBookingVisible(true)}
-          className="shadow-lg hover:shadow-xl transition-shadow text-xs sm:text-sm"
+          className={`shadow-lg hover:shadow-xl transition-all duration-300 ${
+            headerCollapsed 
+              ? 'text-xs px-3 py-1.5' 
+              : 'text-xs sm:text-sm px-4 py-2'
+          }`}
         >
-          预约试听
+          {headerCollapsed ? '预约' : '预约试听'}
         </Button>
       </div>
 

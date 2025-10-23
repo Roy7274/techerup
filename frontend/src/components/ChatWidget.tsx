@@ -5,6 +5,7 @@ import { Modal, Input, Button, Avatar, Space, Form, Select, message as antdMessa
 const { TextArea } = Input
 import { SendOutlined, UserOutlined, RobotOutlined, CustomerServiceOutlined, ArrowUpOutlined } from '@ant-design/icons'
 import { sendMessage, getConversations, getSessionStatus, getFormTemplate, submitForm, getSessionFormData, getClientCity, saveSessionCity } from '@/lib/api'
+import UnifiedFormModal from './UnifiedFormModal'
 import { 
   initSocket, 
   joinSession, 
@@ -31,8 +32,9 @@ interface ChatWidgetProps {
   merchantName?: string
   merchantLogo?: string
 }
+import config from '@/lib/config'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+const API_URL = config.API_URL
 
 export default function ChatWidget({ visible, onClose, welcomeMessage, inline = false, merchantName, merchantLogo }: ChatWidgetProps) {
   const [messages, setMessages] = useState<Message[]>([])
@@ -43,8 +45,6 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
   // 表单相关状态
   const [formModalVisible, setFormModalVisible] = useState(false)
   const [currentFormTemplate, setCurrentFormTemplate] = useState<any>(null)
-  const [formLoading, setFormLoading] = useState(false)
-  const [form] = Form.useForm()
   
   // 地理信息状态
   const [geoInfoFetched, setGeoInfoFetched] = useState(false)
@@ -353,93 +353,17 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
     }
   }
 
-  // 提交表单
-  const handleFormSubmit = async () => {
-    try {
-      const values = await form.validateFields()
-      console.log('表单提交:', values)
-      
-      // 创建inquiry记录（完整表单提交，所有字段必填）
-      try {
-        await submitForm(sessionId, values)
-        antdMessage.success('提交成功！我们会尽快联系您')
-        
-        // 关闭表单并重置
-        setFormModalVisible(false)
-        form.resetFields()
-        setCurrentFormTemplate(null)
-        
-        // 发送一条确认消息
-        await sendMessage({
-          sessionId,
-          message: `我已提交${currentFormTemplate?.name || '表单'}`,
-        })
-        
-        // 重新加载消息
-        const history: any = await getConversations(sessionId)
-        setMessages(Array.isArray(history) ? history : [])
-      } catch (error) {
-        console.error('提交表单失败:', error)
-        antdMessage.error('提交失败，请重试')
-      }
-    } catch (error) {
-      console.log('表单验证失败:', error)
-    }
-  }
-
-  // 初始化表单数据
-  const initializeFormData = async () => {
-    try {
-      const sessionFormData = await getSessionFormData(sessionId)
-      if (sessionFormData) {
-        // 设置表单的初始值
-        const initialValues: any = {}
-        
-        // 如果有城市信息，设置到表单中
-        if (sessionFormData.city) {
-          initialValues.city = sessionFormData.city
-        }
-        if (sessionFormData.grade) {
-          initialValues.grade = sessionFormData.grade
-        }
-        if (sessionFormData.studentGender) {
-          initialValues.studentGender = sessionFormData.studentGender
-        }
-        if (sessionFormData.identity) {
-          initialValues.identity = sessionFormData.identity
-        }
-        if (sessionFormData.phone) {
-          initialValues.phone = sessionFormData.phone
-        }
-        
-        form.setFieldsValue(initialValues)
-        console.log('表单已初始化，使用会话数据:', initialValues)
-      }
-    } catch (error) {
-      console.warn('初始化表单数据失败:', error)
-    }
-  }
-
-  // 渲染表单字段
-  const renderFormField = (field: any) => {
-    const commonProps = {
-      placeholder: field.placeholder || `请输入${field.fieldLabel}`,
-    }
-
-    switch (field.fieldType) {
-      case 'select':
-        return (
-          <Select {...commonProps} options={field.options?.map((opt: string) => ({ label: opt, value: opt }))} />
-        )
-      case 'radio':
-        return (
-          <Select {...commonProps} options={field.options?.map((opt: string) => ({ label: opt, value: opt }))} />
-        )
-      case 'tel':
-        return <Input {...commonProps} type="tel" maxLength={11} />
-      default:
-        return <Input {...commonProps} />
-    }
+  // 处理表单提交成功
+  const handleFormSubmitSuccess = async () => {
+    // 发送一条确认消息
+    await sendMessage({
+      sessionId,
+      message: `我已提交${currentFormTemplate?.name || '表单'}`,
+    })
+    
+    // 重新加载消息
+    const history: any = await getConversations(sessionId)
+    setMessages(Array.isArray(history) ? history : [])
   }
 
 
@@ -556,8 +480,8 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
       </div>
 
       {/* 输入框 - 始终悬浮在底部 */}
-      <div className="fixed bottom-0 left-0 right-0 bg-gray-100 px-4 py-4 z-50">
-        <div className="max-w-4xl mx-auto">
+      <div className="fixed bottom-0 left-0 right-0 z-50">
+        <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="relative flex items-end bg-white rounded-3xl shadow-lg border border-gray-200 hover:border-gray-300 transition-colors px-4 py-3">
             <TextArea
               value={inputValue}
@@ -601,42 +525,20 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
         </div>
       </div>
       
-      {/* 表单填写弹窗 */}
-      <Modal
-        title={currentFormTemplate?.name || '填写信息'}
-        open={formModalVisible}
-        onOk={handleFormSubmit}
-        onCancel={() => {
+      {/* 统一表单弹窗 */}
+      <UnifiedFormModal
+        visible={formModalVisible}
+        onClose={() => {
           setFormModalVisible(false)
-          form.resetFields()
           setCurrentFormTemplate(null)
         }}
-        okText="提交"
-        cancelText="取消"
-        confirmLoading={formLoading}
-      >
-        <Form form={form} layout="vertical">
-          {currentFormTemplate?.fields?.map((field: any) => (
-            <Form.Item
-              key={field.id}
-              label={field.fieldLabel}
-              name={field.fieldName}
-              rules={[
-                {
-                  required: field.required,
-                  message: `请输入${field.fieldLabel}`,
-                },
-                field.fieldType === 'tel' && {
-                  pattern: /^1[3-9]\d{9}$/,
-                  message: '请输入有效的手机号码',
-                },
-              ].filter(Boolean)}
-            >
-              {renderFormField(field)}
-            </Form.Item>
-          ))}
-        </Form>
-      </Modal>
+        sessionId={sessionId}
+        messages={messages}
+        title={currentFormTemplate?.name || '填写信息'}
+        formTemplateId={currentFormTemplate?.id}
+        showExtractedInfo={true}
+        showSaveDraft={false}
+      />
     </>
   )
 

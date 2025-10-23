@@ -848,6 +848,7 @@ export class ConversationService {
           identity: formData.identity || '未知',
           phone: formData.phone || `表单-${sessionId.slice(-8)}`,
           status: formData.phone ? '未联系' : '信息不完整',
+          formData: formData, // 保存完整的表单数据
         },
       });
       
@@ -865,7 +866,7 @@ export class ConversationService {
     }
   }
 
-  // 删除/归档会话
+  // 归档会话（保存聊天记录并创建咨询记录）
   async archiveSession(sessionId: string) {
     try {
       // 先尝试创建Inquiry记录（如果还没有）
@@ -885,6 +886,26 @@ export class ConversationService {
       return { success: true, message: '会话已归档' };
     } catch (error) {
       this.logger.error(`归档会话失败:`, error);
+      throw error;
+    }
+  }
+
+  // 真正删除会话（移除无效聊天，不保存任何记录）
+  async deleteSession(sessionId: string) {
+    try {
+      // 直接删除会话和所有相关的对话记录
+      await this.prisma.conversation.deleteMany({
+        where: { sessionId },
+      });
+      
+      await this.prisma.session.delete({
+        where: { sessionId },
+      });
+      
+      this.logger.log(`会话 ${sessionId} 已删除`);
+      return { success: true, message: '会话已删除' };
+    } catch (error) {
+      this.logger.error(`删除会话失败:`, error);
       throw error;
     }
   }

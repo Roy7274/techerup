@@ -42,6 +42,19 @@ export class InquiryController {
     return this.inquiryService.getStats();
   }
 
+  @Get('trend')
+  getTrendData(
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Query('groupBy') groupBy: 'daily' | 'monthly' = 'daily',
+  ) {
+    return this.inquiryService.getTrendData({
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      groupBy,
+    });
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.inquiryService.findOne(id);
