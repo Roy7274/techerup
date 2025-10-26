@@ -7,7 +7,6 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 
 @Controller('conversations')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class ConversationController {
   constructor(private readonly conversationService: ConversationService) {}
 
@@ -61,6 +60,7 @@ export class ConversationController {
   }
 
   @Get('inquiry/:inquiryId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('super_admin')
   findByInquiry(@Param('inquiryId') inquiryId: string) {
     return this.conversationService.findByInquiry(inquiryId);
@@ -106,6 +106,8 @@ export class ConversationController {
   }
 
   @Post('agent-message')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'super_admin')
   async sendAgentMessage(
     @Body() body: { sessionId: string; message: string; agentId?: string },
   ) {
@@ -122,6 +124,7 @@ export class ConversationController {
   }
 
   @Get('active-sessions')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin', 'super_admin')
   async getActiveSessions(@Query('limit') limit?: string, @Req() req?: any) {
     const limitNum = limit ? parseInt(limit, 10) : 50;
@@ -129,18 +132,21 @@ export class ConversationController {
   }
 
   @Get('pending-agent-sessions')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin', 'super_admin')
   async getPendingAgentSessions(@Req() req?: any) {
     return this.conversationService.getPendingAgentSessions(req?.user);
   }
 
   @Post('session/archive')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin', 'super_admin')
   async archiveSession(@Body() body: { sessionId: string }) {
     return this.conversationService.archiveSession(body.sessionId);
   }
 
   @Post('session/delete')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin', 'super_admin')
   async deleteSession(@Body() body: { sessionId: string }) {
     return this.conversationService.deleteSession(body.sessionId);
