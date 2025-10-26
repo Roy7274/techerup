@@ -1,14 +1,52 @@
-import { Controller, Get, Post, Body, Param, Query, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { ConversationService } from './conversation.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('conversations')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class ConversationController {
   constructor(private readonly conversationService: ConversationService) {}
 
   @Post()
-  create(@Body() createConversationDto: CreateConversationDto) {
+  async create(
+    @Body() createConversationDto: CreateConversationDto,
+    @Req() req: Request,
+  ) {
+    // 如果是用户消息，调用handleUserMessage以触发自动回复
+    if (createConversationDto.sender === 'user') {
+      const clientIP = req.ip || 
+                      req.get('X-Forwarded-For')?.split(',')[0]?.trim() ||
+                      req.get('X-Real-IP') ||
+                      req.connection.remoteAddress;
+      const userAgent = req.get('User-Agent');
+      const acceptLanguage = req.get('Accept-Language');
+      
+      const result = await this.conversationService.handleUserMessage(
+        createConversationDto.sessionId,
+        createConversationDto.message,
+        createConversationDto.metadata,
+        clientIP,
+        userAgent,
+        acceptLanguage,
+      );
+      
+      // 返回用户消息和自动回复信息
+      return {
+        message: result.message || {
+          sessionId: createConversationDto.sessionId,
+          sender: 'user',
+          message: createConversationDto.message,
+        },
+        autoReply: result.autoReply,
+        reply: result.reply,
+      };
+    }
+    
+    // 其他类型的消息直接创建
     return this.conversationService.create(createConversationDto);
   }
 
@@ -23,6 +61,7 @@ export class ConversationController {
   }
 
   @Get('inquiry/:inquiryId')
+  @Roles('super_admin')
   findByInquiry(@Param('inquiryId') inquiryId: string) {
     return this.conversationService.findByInquiry(inquiryId);
   }
@@ -83,22 +122,26 @@ export class ConversationController {
   }
 
   @Get('active-sessions')
-  async getActiveSessions(@Query('limit') limit?: string) {
+  @Roles('admin', 'super_admin')
+  async getActiveSessions(@Query('limit') limit?: string, @Req() req?: any) {
     const limitNum = limit ? parseInt(limit, 10) : 50;
-    return this.conversationService.getActiveSessions(limitNum);
+    return this.conversationService.getActiveSessions(limitNum, req?.user);
   }
 
   @Get('pending-agent-sessions')
-  async getPendingAgentSessions() {
-    return this.conversationService.getPendingAgentSessions();
+  @Roles('admin', 'super_admin')
+  async getPendingAgentSessions(@Req() req?: any) {
+    return this.conversationService.getPendingAgentSessions(req?.user);
   }
 
   @Post('session/archive')
+  @Roles('admin', 'super_admin')
   async archiveSession(@Body() body: { sessionId: string }) {
     return this.conversationService.archiveSession(body.sessionId);
   }
 
   @Post('session/delete')
+  @Roles('admin', 'super_admin')
   async deleteSession(@Body() body: { sessionId: string }) {
     return this.conversationService.deleteSession(body.sessionId);
   }

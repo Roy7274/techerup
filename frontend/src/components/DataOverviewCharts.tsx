@@ -19,9 +19,10 @@ interface TrendData {
 
 interface DataOverviewChartsProps {
   className?: string
+  selectedCity?: string
 }
 
-export default function DataOverviewCharts({ className = '' }: DataOverviewChartsProps) {
+export default function DataOverviewCharts({ className = '', selectedCity }: DataOverviewChartsProps) {
   const [trendData, setTrendData] = useState<TrendData[]>([])
   const [loading, setLoading] = useState(false)
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([
@@ -33,7 +34,8 @@ export default function DataOverviewCharts({ className = '' }: DataOverviewChart
 
   useEffect(() => {
     loadTrendData()
-  }, [dateRange, viewType])
+  }, [dateRange, viewType, selectedCity])
+
 
   const loadTrendData = async () => {
     try {
@@ -41,7 +43,8 @@ export default function DataOverviewCharts({ className = '' }: DataOverviewChart
       const data = await getTrendData({
         startDate: dateRange[0].format('YYYY-MM-DD'),
         endDate: dateRange[1].format('YYYY-MM-DD'),
-        groupBy: viewType
+        groupBy: viewType,
+        city: selectedCity || undefined
       })
       setTrendData(data)
     } catch (error) {

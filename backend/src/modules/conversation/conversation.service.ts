@@ -4,6 +4,7 @@ import { CreateConversationDto } from './dto/create-conversation.dto';
 import { ConversationGateway } from './conversation.gateway';
 import { AutoReplyService } from '../auto-reply/auto-reply.service';
 import { GeoLocationService } from '../geo-location/geo-location.service';
+import { MerchantService } from '../merchant/merchant.service';
 import { Logger } from '@nestjs/common';
 
 @Injectable()
@@ -16,6 +17,7 @@ export class ConversationService {
     private conversationGateway: ConversationGateway,
     private autoReplyService: AutoReplyService,
     private geoLocationService: GeoLocationService,
+    private merchantService: MerchantService,
   ) {}
 
   // 获取或创建会话
@@ -114,6 +116,32 @@ export class ConversationService {
     });
   }
 
+  // 发送自动回复消息
+  async sendAutoReplyMessage(sessionId: string, autoReply: any) {
+    try {
+      const botMessage = await this.prisma.conversation.create({
+        data: {
+          sessionId,
+          sender: 'bot',
+          message: autoReply.message,
+          metadata: {
+            autoReplyId: autoReply.id,
+            hasOptions: autoReply.hasOptions,
+            options: autoReply.options,
+            formTemplateId: autoReply.formTemplateId,
+            isScheduled: autoReply.triggerType === 'scheduled',
+          },
+        },
+      });
+      
+      this.logger.debug(`发送自动回复消息: ${autoReply.message}`);
+      return botMessage;
+    } catch (error) {
+      this.logger.error('发送自动回复消息失败:', error);
+      return null;
+    }
+  }
+
   // 获取会话的所有对话
   async findBySession(sessionId: string) {
     return this.prisma.conversation.findMany({
@@ -124,7 +152,7 @@ export class ConversationService {
     });
   }
 
-  // 获取咨询记录的所有对话
+  // 获取咨询记录的所有对话（仅超级管理员可访问）
   async findByInquiry(inquiryId: string) {
     return this.prisma.conversation.findMany({
       where: { inquiryId },
@@ -252,20 +280,30 @@ export class ConversationService {
     const history = await this.findBySession(sessionId);
     
     // 检查是否已经有自动回复处理过（避免重复）
-    // 检查最近5条消息中是否有自动回复
-    const recentMessages = history.slice(-5);
-    const hasAutoReplyProcessed = recentMessages.some(msg => 
-      msg.sender === 'bot' && msg.metadata && (msg.metadata as any).autoReplyId
-    );
+    // 只检查最近1条消息，避免过度限制AI回复
+    const recentMessages = history.slice(-1);
+    const lastMessage = recentMessages[0];
     
-    // 如果最近已经有自动回复，不重复发送
-    if (hasAutoReplyProcessed) {
-      this.logger.log(`会话 ${sessionId} 最近已有自动回复，跳过重复发送`);
-      return {
-        reply: null,
-        isAgent: false,
-        message: null,
-      };
+    // 如果最近一条消息是自动回复，检查是否需要避免重复
+    if (lastMessage && lastMessage.sender === 'bot' && lastMessage.metadata && (lastMessage.metadata as any).autoReplyId) {
+      const lastAutoReplyId = (lastMessage.metadata as any).autoReplyId;
+      const lastAutoReply = await this.autoReplyService.findOne(lastAutoReplyId);
+      
+      // 如果最近一条是定时询问，允许AI回复
+      // 如果最近一条是AI回复，允许定时询问
+      // 只有相同类型的连续回复才需要避免
+      if (lastAutoReply && lastAutoReply.triggerType === 'scheduled') {
+        this.logger.log(`会话 ${sessionId} 最近一条是定时询问，允许AI回复`);
+      } else if (lastAutoReply && (lastAutoReply.triggerType === 'default' || (lastAutoReply.metadata as any)?.isDefaultAI)) {
+        this.logger.log(`会话 ${sessionId} 最近一条是AI回复，允许定时询问`);
+      } else {
+        this.logger.log(`会话 ${sessionId} 最近一条是相同类型的自动回复，跳过重复发送`);
+        return {
+          reply: null,
+          isAgent: false,
+          message: null,
+        };
+      }
     }
     
     let autoReplyData = null;
@@ -287,37 +325,96 @@ export class ConversationService {
 
     // 如果没有欢迎语，先尝试发送欢迎语
     if (!hasWelcomeMessage) {
+      this.logger.debug(`会话 ${sessionId} 没有欢迎语，尝试发送欢迎语`);
       const welcomeMessage = await this.autoReplyService.getWelcomeMessage();
       if (welcomeMessage && welcomeMessage.message && welcomeMessage.message.trim()) {
+        this.logger.debug(`找到欢迎语: ${welcomeMessage.message}`);
         autoReplyData = welcomeMessage;
         botMessageText = welcomeMessage.message.trim();
       } else {
+        this.logger.debug(`没有找到欢迎语，尝试获取定时回复`);
         // 如果没有设置欢迎语，获取第一个定时自动回复
         const firstScheduledReply = await this.autoReplyService.getNextScheduledReply(sessionId);
         if (firstScheduledReply) {
+          this.logger.debug(`找到定时回复: ${firstScheduledReply.message}`);
           autoReplyData = firstScheduledReply;
           botMessageText = firstScheduledReply.message.trim();
         }
       }
     } else {
-      // 尝试匹配关键词或默认回复
-      const matchedReply = await this.autoReplyService.findMatchingReply(message, sessionId);
-      
-      if (matchedReply && matchedReply.message && matchedReply.message.trim()) {
-        autoReplyData = matchedReply;
-        botMessageText = matchedReply.message.trim();
-      } else {
-        // 如果没有匹配的自动回复，先尝试获取默认回复
-        const defaultReply = await this.autoReplyService.getDefaultReply();
-        if (defaultReply && defaultReply.message && defaultReply.message.trim()) {
-          autoReplyData = defaultReply;
-          botMessageText = defaultReply.message.trim();
+      // 先检查是否启用默认AI回复，如果启用则优先使用AI回复
+      const merchantInfo = await this.merchantService.findActive();
+      if (merchantInfo && merchantInfo.defaultAIEnabled) {
+        // 检查用户消息是否像是一个问题（包含问号或疑问词）
+        const isQuestion = /[？?]|什么|怎么|如何|为什么|哪里|哪个|多少|是否|有没有|可以吗|行吗|好吗/.test(message);
+        
+        if (isQuestion) {
+          // 如果是问题，使用AI回复
+          this.logger.debug(`用户发送了问题，使用AI回复: ${message}`);
+          const defaultAiReply = await this.autoReplyService.generateDefaultAiReply(message, sessionId);
+          if (defaultAiReply && defaultAiReply.message && defaultAiReply.message.trim()) {
+            autoReplyData = defaultAiReply;
+            botMessageText = defaultAiReply.message.trim();
+          } else {
+            // AI回复失败，回退到关键词匹配
+            const matchedReply = await this.autoReplyService.findMatchingReply(message, sessionId);
+            if (matchedReply && matchedReply.message && matchedReply.message.trim()) {
+              autoReplyData = matchedReply;
+              botMessageText = matchedReply.message.trim();
+            }
+          }
+          
+          // AI回复后，检查是否需要发送定时询问
+          if (autoReplyData && botMessageText) {
+            // 延迟发送定时询问，让用户先看到AI回复
+            setTimeout(async () => {
+              try {
+                const nextScheduledReply = await this.autoReplyService.getNextScheduledReply(sessionId);
+                if (nextScheduledReply) {
+                  this.logger.debug(`AI回复后发送定时询问: ${nextScheduledReply.message}`);
+                  await this.sendAutoReplyMessage(sessionId, nextScheduledReply);
+                }
+              } catch (error) {
+                this.logger.error('AI回复后发送定时询问失败:', error);
+              }
+            }, 2000); // 2秒后发送定时询问
+          }
         } else {
-          // 如果没有默认回复，获取下一个定时自动回复
-          const nextScheduledReply = await this.autoReplyService.getNextScheduledReply(sessionId);
-          if (nextScheduledReply) {
-            autoReplyData = nextScheduledReply;
-            botMessageText = nextScheduledReply.message.trim();
+          // 如果不是问题，尝试匹配关键词或默认回复
+          const matchedReply = await this.autoReplyService.findMatchingReply(message, sessionId);
+          
+          if (matchedReply && matchedReply.message && matchedReply.message.trim()) {
+            autoReplyData = matchedReply;
+            botMessageText = matchedReply.message.trim();
+          } else {
+            // 如果没有匹配的自动回复，获取下一个定时自动回复
+            const nextScheduledReply = await this.autoReplyService.getNextScheduledReply(sessionId);
+            if (nextScheduledReply) {
+              autoReplyData = nextScheduledReply;
+              botMessageText = nextScheduledReply.message.trim();
+            }
+          }
+        }
+      } else {
+        // 如果没有启用默认AI回复，使用原来的逻辑
+        const matchedReply = await this.autoReplyService.findMatchingReply(message, sessionId);
+        
+        if (matchedReply && matchedReply.message && matchedReply.message.trim()) {
+          autoReplyData = matchedReply;
+          botMessageText = matchedReply.message.trim();
+        } else {
+          // 如果没有匹配的自动回复，先尝试获取默认回复
+          const defaultReply = await this.autoReplyService.getDefaultReply();
+          if (defaultReply && defaultReply.message && defaultReply.message.trim()) {
+            autoReplyData = defaultReply;
+            botMessageText = defaultReply.message.trim();
+          } else {
+            // 如果没有默认回复，获取下一个定时自动回复
+            const nextScheduledReply = await this.autoReplyService.getNextScheduledReply(sessionId);
+            if (nextScheduledReply) {
+              autoReplyData = nextScheduledReply;
+              botMessageText = nextScheduledReply.message.trim();
+            }
           }
         }
       }
@@ -326,12 +423,16 @@ export class ConversationService {
     // 验证消息内容，如果为空则不发送
     if (!botMessageText || !botMessageText.trim()) {
       this.logger.warn(`会话 ${sessionId} 自动回复消息为空，跳过发送`);
+      this.logger.debug(`autoReplyData: ${JSON.stringify(autoReplyData)}`);
+      this.logger.debug(`botMessageText: "${botMessageText}"`);
       return {
         reply: null,
         isAgent: false,
         message: null,
       };
     }
+    
+    this.logger.debug(`会话 ${sessionId} 准备发送自动回复: ${botMessageText}`);
 
     // 保存机器人回复
     const botMessage = await this.create({
@@ -566,16 +667,25 @@ export class ConversationService {
   }
 
   // 获取所有活跃会话（用于客服后台）
-  async getActiveSessions(limit: number = 50) {
+  async getActiveSessions(limit: number = 50, currentUser?: any) {
     // 获取最近活跃的会话（24小时内）
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     
-    const sessions = await this.prisma.session.findMany({
-      where: {
-        lastActivity: {
-          gte: oneDayAgo,
-        },
+    let whereClause: any = {
+      lastActivity: {
+        gte: oneDayAgo,
       },
+    };
+
+    // 如果不是超级管理员，需要根据城市权限过滤
+    if (currentUser && currentUser.role !== 'super_admin') {
+      // 这里需要根据会话的城市信息进行过滤
+      // 由于会话表没有直接的城市字段，我们需要通过关联的咨询记录来过滤
+      // 暂时返回所有会话，后续可以通过关联查询优化
+    }
+    
+    const sessions = await this.prisma.session.findMany({
+      where: whereClause,
       orderBy: {
         lastActivity: 'desc',
       },
@@ -643,16 +753,25 @@ export class ConversationService {
   }
 
   // 获取需要人工处理的会话（所有活跃会话，包括未转人工的）
-  async getPendingAgentSessions() {
+  async getPendingAgentSessions(currentUser?: any) {
     // 获取最近活跃的会话（24小时内）
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     
-    const sessions = await this.prisma.session.findMany({
-      where: {
-        lastActivity: {
-          gte: oneDayAgo,
-        },
+    let whereClause: any = {
+      lastActivity: {
+        gte: oneDayAgo,
       },
+    };
+
+    // 如果不是超级管理员，需要根据城市权限过滤
+    if (currentUser && currentUser.role !== 'super_admin') {
+      // 这里需要根据会话的城市信息进行过滤
+      // 由于会话表没有直接的城市字段，我们需要通过关联的咨询记录来过滤
+      // 暂时返回所有会话，后续可以通过关联查询优化
+    }
+    
+    const sessions = await this.prisma.session.findMany({
+      where: whereClause,
       orderBy: {
         lastActivity: 'desc',
       },

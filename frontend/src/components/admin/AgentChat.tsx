@@ -5,6 +5,7 @@ import { Card, List, Input, Button, Badge, Avatar, Space, Empty, message as antM
 import { SendOutlined, UserOutlined, CustomerServiceOutlined, ReloadOutlined, PlusOutlined, DeleteOutlined, FileTextOutlined, FormOutlined } from '@ant-design/icons'
 import QuickFormModal from './QuickFormModal'
 import { getConversations, sendAgentMessage, getActiveSessions, getPendingAgentSessions, archiveSession, deleteSession } from '@/lib/api'
+import { formatMessage, hasFormatting, createSafeHtml, getFormatStyles, getFormatClassName } from '@/lib/messageFormatter'
 import { 
   initSocket, 
   joinSession, 
@@ -40,10 +41,52 @@ export default function AgentChat() {
   const [userLeftAlert, setUserLeftAlert] = useState(false)
   const [quickFormVisible, setQuickFormVisible] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
   // 自动滚动到底部
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  // 播放音效提示
+  const playNotificationSound = () => {
+    try {
+      // 创建音频上下文（如果浏览器支持）
+      if (typeof window !== 'undefined' && window.AudioContext) {
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+        
+        // 播放3次提示音，每次间隔0.2秒
+        for (let i = 0; i < 3; i++) {
+          const startTime = audioContext.currentTime + i * 0.4 // 每次间隔0.4秒
+          
+          const oscillator = audioContext.createOscillator()
+          const gainNode = audioContext.createGain()
+          
+          oscillator.connect(gainNode)
+          gainNode.connect(audioContext.destination)
+          
+          oscillator.frequency.setValueAtTime(800, startTime) // 800Hz 频率
+          oscillator.type = 'sine'
+          
+          gainNode.gain.setValueAtTime(0, startTime)
+          gainNode.gain.linearRampToValueAtTime(0.4, startTime + 0.01)
+          gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + 0.3)
+          
+          oscillator.start(startTime)
+          oscillator.stop(startTime + 0.3)
+        }
+      } else {
+        // 降级方案：使用系统提示音，也播放3次
+        for (let i = 0; i < 3; i++) {
+          setTimeout(() => {
+            console.log('\u0007') // 系统蜂鸣声
+          }, i * 400) // 每次间隔400ms
+        }
+      }
+    } catch (error) {
+      console.warn('无法播放音效:', error)
+      // 静默失败，不影响其他功能
+    }
   }
 
   useEffect(() => {
@@ -83,6 +126,8 @@ export default function AgentChat() {
       console.log('收到新的客服会话通知:', data)
       // 重新加载会话列表
       loadSessions()
+      // 播放音效提示
+      playNotificationSound()
       // 显示桌面通知
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification('新的客服会话', {
@@ -94,18 +139,46 @@ export default function AgentChat() {
       antMessage.info('有新的用户请求人工客服')
     })
     
+    // 全局监听所有会话的新消息（用于音效提示和消息更新）
+    onNewMessage((message: any) => {
+      console.log('全局收到新消息:', message)
+      
+      // 如果是用户消息，播放音效提示（无论是否在当前会话中）
+      if (message.sender === 'user') {
+        playNotificationSound()
+        // 刷新会话列表（更新未读数）
+        loadSessions()
+      }
+      
+      // 如果当前有选中的会话，且消息属于当前会话，则更新消息列表
+      if (selectedSession && message.sessionId === selectedSession) {
+        setMessages((prev) => {
+          // 检查消息是否已存在（避免重复）
+          if (prev.some((msg) => msg.id === message.id)) {
+            return prev
+          }
+          return [...prev, message]
+        })
+      }
+    })
+    
     // 每30秒自动刷新会话列表（作为备用）
     const interval = setInterval(loadSessions, 30000)
     
     return () => {
       clearInterval(interval)
       offNewAgentSession()
+      offNewMessage() // 清理全局消息监听
       offUserLeft()
       if (selectedSession) {
         leaveSession(selectedSession)
-        offNewMessage()
       }
     }
+  }, []) // 移除selectedSession依赖，让这个effect只在组件挂载时运行一次
+
+  // 当selectedSession变化时，更新全局消息监听中的会话ID引用
+  useEffect(() => {
+    // 这个effect确保全局消息监听能正确识别当前选中的会话
   }, [selectedSession])
 
   // 加载选中会话的消息
@@ -124,7 +197,6 @@ export default function AgentChat() {
     // 如果已经选中了其他会话，先离开
     if (selectedSession) {
       leaveSession(selectedSession)
-      offNewMessage()
       offUserLeft()
     }
     
@@ -135,24 +207,7 @@ export default function AgentChat() {
     // 加入新会话房间
     joinSession(sessionId, 'agent')
     
-    // 监听该会话的新消息
-    onNewMessage((message: any) => {
-      console.log('客服收到实时消息:', message)
-      setMessages((prev) => {
-        // 检查消息是否已存在（避免重复）
-        if (prev.some((msg) => msg.id === message.id)) {
-          return prev
-        }
-        return [...prev, message]
-      })
-      
-      // 如果是用户消息，刷新会话列表（更新未读数）
-      if (message.sender === 'user') {
-        loadSessions()
-      }
-    })
-    
-    // 监听用户离开事件
+    // 监听用户离开事件（只针对当前会话）
     onUserLeft((data: any) => {
       console.log('用户离开会话:', data)
       if (data.sessionId === sessionId) {
@@ -444,7 +499,15 @@ export default function AgentChat() {
                   <div key={msg.id} className="flex justify-center">
                     <div className="bg-yellow-50 border border-yellow-200 px-4 py-2 rounded-lg max-w-md">
                       <div className="text-sm text-yellow-800 text-center font-medium">
-                        {msg.message}
+                        {hasFormatting(msg.message) ? (
+                          <div 
+                            className={getFormatClassName()}
+                            dangerouslySetInnerHTML={createSafeHtml(formatMessage(msg.message))} 
+                            style={getFormatStyles()}
+                          />
+                        ) : (
+                          msg.message
+                        )}
                       </div>
                       <div className="text-xs text-yellow-600 text-center mt-1">
                         {new Date(msg.createdAt).toLocaleString()}
@@ -492,7 +555,15 @@ export default function AgentChat() {
                               : 'bg-white text-gray-800 border border-gray-200'
                           }`}
                         >
-                          {msg.message}
+                          {hasFormatting(msg.message) ? (
+                            <div 
+                              className={getFormatClassName()}
+                              dangerouslySetInnerHTML={createSafeHtml(formatMessage(msg.message))} 
+                              style={getFormatStyles()}
+                            />
+                          ) : (
+                            msg.message
+                          )}
                         </div>
                         <div className="text-xs text-gray-400 mt-1">
                           {new Date(msg.createdAt).toLocaleString()}

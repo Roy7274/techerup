@@ -1,12 +1,18 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateAutoReplyDto } from './dto/create-auto-reply.dto';
 import { UpdateAutoReplyDto } from './dto/update-auto-reply.dto';
+import { AiService, MerchantContext } from '../ai/ai.service';
+import { MerchantService } from '../merchant/merchant.service';
 
 @Injectable()
 export class AutoReplyService {
+  private readonly logger = new Logger(AutoReplyService.name);
+
   constructor(
     private prisma: PrismaService,
+    private aiService: AiService,
+    private merchantService: MerchantService,
   ) {}
 
   // 创建自动回复
@@ -105,24 +111,301 @@ export class AutoReplyService {
       ],
     });
 
-    // 匹配关键词触发的回复
+    // 优先匹配关键词触发的回复
     for (const reply of autoReplies) {
-      if (reply.triggerType === 'keyword' && reply.keywords && reply.message && reply.message.trim()) {
+      if (reply.triggerType === 'keyword' && reply.keywords) {
         const keywords = Array.isArray(reply.keywords) 
           ? reply.keywords 
           : (reply.keywords as any)?.keywords || [];
         
         for (const keyword of keywords) {
           if (keyword && keyword.trim() && lowerMessage.includes(keyword.toLowerCase().trim())) {
-            return reply;
+            // 如果匹配的回复启用了关键词AI，使用AI生成回复
+            if (reply.keywordAIEnabled) {
+              this.logger.debug(`触发关键词AI回复: ${reply.name}`);
+              return await this.generateKeywordAiReply(message, reply, sessionId);
+            }
+            // 如果匹配的回复启用了AI，使用AI生成回复
+            if (reply.useAI) {
+              this.logger.debug(`触发普通AI回复: ${reply.name}`);
+              return await this.generateAiReply(message, reply, sessionId);
+            }
+            // 否则返回固定回复
+            if (reply.message && reply.message.trim()) {
+              this.logger.debug(`触发固定回复: ${reply.name}`);
+              return reply;
+            }
           }
         }
       }
     }
 
-    // 如果没有关键词匹配，返回默认回复
-    const defaultReply = autoReplies.find(r => r.triggerType === 'default' && r.message && r.message.trim());
-    return defaultReply || null;
+    // 寻找AI类型的回复
+    const aiReply = autoReplies.find(r => r.triggerType === 'ai' && r.isActive);
+    if (aiReply) {
+      return await this.generateAiReply(message, aiReply, sessionId);
+    }
+
+    // 寻找启用AI的默认回复
+    const defaultReply = autoReplies.find(r => r.triggerType === 'default' && r.isActive);
+    if (defaultReply) {
+      if (defaultReply.useAI) {
+        return await this.generateAiReply(message, defaultReply, sessionId);
+      }
+      if (defaultReply.message && defaultReply.message.trim()) {
+        return defaultReply;
+      }
+    }
+
+    // 检查是否启用默认AI回复
+    const merchantInfo = await this.merchantService.findActive();
+    this.logger.debug(`检查默认AI回复: merchantInfo=${!!merchantInfo}, defaultAIEnabled=${merchantInfo?.defaultAIEnabled}`);
+    if (merchantInfo && merchantInfo.defaultAIEnabled) {
+      this.logger.debug('触发默认AI回复');
+      return await this.generateDefaultAiReply(message, sessionId);
+    }
+
+    return null;
+  }
+
+  // 生成关键词AI回复
+  private async generateKeywordAiReply(userMessage: string, autoReply: any, sessionId: string) {
+    try {
+      // 获取商家信息
+      const merchantInfo = await this.merchantService.findActive();
+      if (!merchantInfo || !merchantInfo.aiConfig) {
+        this.logger.warn('商家信息或AI配置未找到，返回默认消息');
+        return {
+          ...autoReply,
+          message: autoReply.message || '抱歉，暂时无法为您提供智能回复，请联系客服获得帮助。'
+        };
+      }
+
+      // 构建商家上下文
+      const services: string[] = Array.isArray(merchantInfo.services) 
+        ? merchantInfo.services.filter((s): s is string => typeof s === 'string')
+        : [];
+        
+      const advantages = Array.isArray(merchantInfo.advantages)
+        ? merchantInfo.advantages.filter((a): a is string => typeof a === 'string').join('、')
+        : '';
+
+      const merchantContext: MerchantContext = {
+        businessName: merchantInfo.businessName || merchantInfo.name || '未知商家',
+        businessType: merchantInfo.businessType || '服务商家',
+        businessDescription: merchantInfo.businessDescription || merchantInfo.description || '',
+        location: merchantInfo.location || '未知地区',
+        contactPhone: merchantInfo.contactPhone || (merchantInfo.contact as any)?.phone || '未提供',
+        contactEmail: merchantInfo.contactEmail || (merchantInfo.contact as any)?.email,
+        businessHours: merchantInfo.businessHours || '营业时间请咨询',
+        services,
+        specialOffers: merchantInfo.specialOffers,
+        targetAudience: merchantInfo.targetAudience || '所有客户',
+        businessAdvantages: merchantInfo.businessAdvantages || advantages,
+      };
+
+      // 安全地获取AI配置
+      const aiConfigData = merchantInfo.aiConfig as any;
+      if (!aiConfigData || typeof aiConfigData !== 'object') {
+        throw new Error('AI配置无效');
+      }
+
+      // 使用指定的AI模型或默认模型
+      const aiConfig = {
+        defaultModel: autoReply.aiModel || aiConfigData.defaultModel || 'deepseek-v3.1-250821',
+        systemPrompt: aiConfigData.systemPrompt || '你是一个专业的客服助理。',
+        maxTokens: aiConfigData.maxTokens || 2000,
+        temperature: aiConfigData.temperature || 0.7,
+        apiKey: aiConfigData.apiKey || '',
+        apiSecret: aiConfigData.apiSecret || '',
+      };
+
+      // 使用关键词AI提示词或系统提示词
+      const prompt = autoReply.keywordAIPrompt || aiConfig.systemPrompt;
+
+      // 生成AI回复
+      const aiResponse = await this.aiService.generateResponse(
+        userMessage,
+        aiConfig,
+        merchantContext,
+        prompt
+      );
+
+      // 返回包含AI生成内容的回复对象
+      return {
+        ...autoReply,
+        message: aiResponse,
+        isAiGenerated: true, // 标记为AI生成
+      };
+
+    } catch (error) {
+      this.logger.error(`关键词AI回复生成失败: ${error.message}`, error);
+      
+      // AI失败时返回备用消息
+      return {
+        ...autoReply,
+        message: autoReply.message || '抱歉，暂时无法为您提供智能回复，请联系客服获得帮助。'
+      };
+    }
+  }
+
+  // 生成默认AI回复
+  async generateDefaultAiReply(userMessage: string, sessionId: string) {
+    try {
+      this.logger.debug(`开始生成默认AI回复: ${userMessage}`);
+      
+      // 获取商家信息
+      const merchantInfo = await this.merchantService.findActive();
+      if (!merchantInfo || !merchantInfo.aiConfig) {
+        this.logger.warn('商家信息或AI配置未找到，无法生成默认AI回复');
+        return null;
+      }
+      
+      this.logger.debug(`商家信息找到: ${merchantInfo.businessName}, 默认AI启用: ${merchantInfo.defaultAIEnabled}`);
+
+      // 构建商家上下文
+      const services: string[] = Array.isArray(merchantInfo.services) 
+        ? merchantInfo.services.filter((s): s is string => typeof s === 'string')
+        : [];
+        
+      const advantages = Array.isArray(merchantInfo.advantages)
+        ? merchantInfo.advantages.filter((a): a is string => typeof a === 'string').join('、')
+        : '';
+
+      const merchantContext: MerchantContext = {
+        businessName: merchantInfo.businessName || merchantInfo.name || '未知商家',
+        businessType: merchantInfo.businessType || '服务商家',
+        businessDescription: merchantInfo.businessDescription || merchantInfo.description || '',
+        location: merchantInfo.location || '未知地区',
+        contactPhone: merchantInfo.contactPhone || (merchantInfo.contact as any)?.phone || '未提供',
+        contactEmail: merchantInfo.contactEmail || (merchantInfo.contact as any)?.email,
+        businessHours: merchantInfo.businessHours || '营业时间请咨询',
+        services,
+        specialOffers: merchantInfo.specialOffers,
+        targetAudience: merchantInfo.targetAudience || '所有客户',
+        businessAdvantages: merchantInfo.businessAdvantages || advantages,
+      };
+
+      // 安全地获取AI配置
+      const aiConfigData = merchantInfo.aiConfig as any;
+      if (!aiConfigData || typeof aiConfigData !== 'object') {
+        throw new Error('AI配置无效');
+      }
+
+      // 使用默认AI配置
+      const aiConfig = {
+        defaultModel: aiConfigData.defaultModel || 'deepseek-v3.1-250821',
+        systemPrompt: aiConfigData.systemPrompt || '你是一个专业的客服助理。',
+        maxTokens: aiConfigData.maxTokens || 2000,
+        temperature: aiConfigData.temperature || 0.7,
+        apiKey: aiConfigData.apiKey || '',
+        apiSecret: aiConfigData.apiSecret || '',
+      };
+
+      // 使用默认AI提示词或系统提示词
+      const prompt = merchantInfo.defaultAIPrompt || aiConfig.systemPrompt;
+
+      // 生成AI回复
+      const aiResponse = await this.aiService.generateResponse(
+        userMessage,
+        aiConfig,
+        merchantContext,
+        prompt
+      );
+
+      // 返回默认AI回复对象
+      return {
+        id: 'default-ai',
+        name: '默认AI回复',
+        triggerType: 'default',
+        priority: merchantInfo.defaultAIPriority || 5,
+        message: aiResponse,
+        isAiGenerated: true,
+        isDefaultAI: true,
+      };
+
+    } catch (error) {
+      this.logger.error(`默认AI回复生成失败: ${error.message}`, error);
+      return null;
+    }
+  }
+
+  // 生成AI回复
+  private async generateAiReply(userMessage: string, autoReply: any, sessionId: string) {
+    try {
+      // 获取商家信息
+      const merchantInfo = await this.merchantService.findActive();
+      if (!merchantInfo || !merchantInfo.aiConfig) {
+        this.logger.warn('商家信息或AI配置未找到，返回默认消息');
+        return {
+          ...autoReply,
+          message: autoReply.message || '抱歉，暂时无法为您提供智能回复，请联系客服获得帮助。'
+        };
+      }
+
+      // 构建商家上下文
+      const services: string[] = Array.isArray(merchantInfo.services) 
+        ? merchantInfo.services.filter((s): s is string => typeof s === 'string')
+        : [];
+        
+      const advantages = Array.isArray(merchantInfo.advantages)
+        ? merchantInfo.advantages.filter((a): a is string => typeof a === 'string').join('、')
+        : '';
+
+      const merchantContext: MerchantContext = {
+        businessName: merchantInfo.businessName || merchantInfo.name || '未知商家',
+        businessType: merchantInfo.businessType || '服务商家',
+        businessDescription: merchantInfo.businessDescription || merchantInfo.description || '',
+        location: merchantInfo.location || '未知地区',
+        contactPhone: merchantInfo.contactPhone || (merchantInfo.contact as any)?.phone || '未提供',
+        contactEmail: merchantInfo.contactEmail || (merchantInfo.contact as any)?.email,
+        businessHours: merchantInfo.businessHours || '营业时间请咨询',
+        services,
+        specialOffers: merchantInfo.specialOffers,
+        targetAudience: merchantInfo.targetAudience || '所有客户',
+        businessAdvantages: merchantInfo.businessAdvantages || advantages,
+      };
+
+      // 安全地获取AI配置
+      const aiConfigData = merchantInfo.aiConfig as any;
+      if (!aiConfigData || typeof aiConfigData !== 'object') {
+        throw new Error('AI配置无效');
+      }
+
+      // 使用指定的AI模型或默认模型
+      const aiConfig = {
+        defaultModel: autoReply.aiModel || aiConfigData.defaultModel || 'deepseek-v3.1-250821',
+        systemPrompt: aiConfigData.systemPrompt || '你是一个专业的客服助理。',
+        maxTokens: aiConfigData.maxTokens || 2000,
+        temperature: aiConfigData.temperature || 0.7,
+        apiKey: aiConfigData.apiKey || '',
+        apiSecret: aiConfigData.apiSecret || '',
+      };
+
+      // 生成AI回复
+      const aiResponse = await this.aiService.generateResponse(
+        userMessage,
+        aiConfig,
+        merchantContext,
+        autoReply.aiPrompt
+      );
+
+      // 返回包含AI生成内容的回复对象
+      return {
+        ...autoReply,
+        message: aiResponse,
+        isAiGenerated: true, // 标记为AI生成
+      };
+
+    } catch (error) {
+      this.logger.error(`AI回复生成失败: ${error.message}`, error);
+      
+      // AI失败时返回备用消息
+      return {
+        ...autoReply,
+        message: autoReply.message || '抱歉，暂时无法为您提供智能回复，请联系客服获得帮助。'
+      };
+    }
   }
 
   // 获取默认回复

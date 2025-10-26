@@ -115,15 +115,6 @@ export default function MerchantInfoDrawer({ visible, merchantInfo, onClose }: M
           </div>
         )}
 
-        {/* 欢迎语 - 移动端优化 */}
-        {merchantInfo.welcomeMessage && (
-          <div className="mb-4 sm:mb-6">
-            <Title level={4} className="text-base sm:text-lg mb-2 sm:mb-3">欢迎语</Title>
-            <div className="bg-blue-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-400">
-              <Text className="text-sm sm:text-base">{merchantInfo.welcomeMessage}</Text>
-            </div>
-          </div>
-        )}
 
         {/* 详细描述（富文本内容） - 移动端优化 */}
         {merchantInfo.detailedDescription && (

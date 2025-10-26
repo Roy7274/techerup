@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Form, Input, Button, Card, message } from 'antd'
 import { UserOutlined, LockOutlined } from '@ant-design/icons'
 import { login } from '@/lib/api'
+import { setToken } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
@@ -14,7 +15,7 @@ export default function LoginPage() {
     try {
       setLoading(true)
       const response = await login(values.username, values.password)
-      localStorage.setItem('token', (response as any).access_token)
+      setToken((response as any).access_token)
       message.success('登录成功')
       router.push('/admin')
     } catch (error) {

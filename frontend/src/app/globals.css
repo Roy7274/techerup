@@ -46,6 +46,37 @@ html {
   margin-bottom: 0;
 }
 
+/* 消息格式化样式 */
+.message-formatted strong {
+  font-weight: 600;
+  color: inherit;
+}
+
+.message-formatted em {
+  font-style: italic;
+  color: inherit;
+}
+
+.message-formatted u {
+  text-decoration: underline;
+  color: inherit;
+}
+
+.message-formatted del {
+  text-decoration: line-through;
+  color: inherit;
+  opacity: 0.7;
+}
+
+.message-formatted code {
+  background-color: rgba(0, 0, 0, 0.1);
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+  color: inherit;
+}
+
 /* 自定义滚动条 - 仅在桌面端显示 */
 @media (min-width: 640px) {
   ::-webkit-scrollbar {

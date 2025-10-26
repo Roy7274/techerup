@@ -5,7 +5,7 @@ export class CreateAutoReplyDto {
   name: string;
 
   @IsString()
-  triggerType: string; // keyword/welcome/default/scheduled/manual
+  triggerType: string; // keyword/welcome/default/scheduled/manual/ai
 
   @IsOptional()
   @IsArray()
@@ -15,8 +15,9 @@ export class CreateAutoReplyDto {
   @IsNumber()
   priority?: number;
 
+  @IsOptional()
   @IsString()
-  message: string;
+  message?: string; // AI类型可以为空
 
   @IsOptional()
   @IsBoolean()
@@ -35,6 +36,28 @@ export class CreateAutoReplyDto {
 
   @IsOptional()
   useConditions?: any; // 使用条件（时间段等）
+
+  // AI相关字段
+  @IsOptional()
+  @IsBoolean()
+  useAI?: boolean;
+
+  @IsOptional()
+  @IsString()
+  aiPrompt?: string;
+
+  @IsOptional()
+  @IsString()
+  aiModel?: string;
+
+  // 关键词AI结合功能
+  @IsOptional()
+  @IsBoolean()
+  keywordAIEnabled?: boolean;
+
+  @IsOptional()
+  @IsString()
+  keywordAIPrompt?: string;
 }
 
 
