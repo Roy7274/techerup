@@ -12,8 +12,8 @@ export class AuthController {
   }
 
   @Post('register')
-  async register(@Body() body: { username: string; password: string; email?: string }) {
-    return this.authService.register(body.username, body.password, body.email);
+  async register(@Body() body: { username: string; password: string; email?: string; cities?: string[] }) {
+    return this.authService.register(body.username, body.password, body.email, body.cities);
   }
 
   @UseGuards(JwtAuthGuard)

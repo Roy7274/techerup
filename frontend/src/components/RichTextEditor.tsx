@@ -7,6 +7,7 @@ import 'react-quill/dist/quill.snow.css'
 
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false })
 import config from '@/lib/config'
+import { getToken } from '@/lib/auth'
 
 const API_URL = config.API_URL
 
@@ -51,7 +52,7 @@ export default function RichTextEditor({
           method: 'POST',
           body: formData,
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            Authorization: `Bearer ${getToken()}`,
           },
         })
 
@@ -97,7 +98,7 @@ export default function RichTextEditor({
         method: 'POST',
         body: formData,
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${getToken()}`,
         },
       })
 

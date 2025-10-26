@@ -1,5 +1,6 @@
 import axios from 'axios'
 import config from './config'
+import { getToken, logout } from './auth'
 
 const API_URL = config.API_URL
 
@@ -14,7 +15,7 @@ const api = axios.create({
 // 请求拦截器
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token')
+    const token = getToken()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -30,6 +31,13 @@ api.interceptors.response.use(
   (response) => response.data,
   (error) => {
     console.error('API Error:', error.response?.data || error.message)
+    
+    // 处理401未授权错误 - 身份验证过期
+    if (error.response?.status === 401) {
+      // 使用统一的登出函数
+      logout()
+    }
+    
     return Promise.reject(error)
   }
 )
@@ -40,9 +48,7 @@ export const getInquiries = (params?: any) => api.get('/inquiries', { params })
 export const getInquiry = (id: string) => api.get(`/inquiries/${id}`)
 export const updateInquiry = (id: string, data: any) => api.patch(`/inquiries/${id}`, data)
 export const deleteInquiry = (id: string) => api.delete(`/inquiries/${id}`)
-export const getInquiryStats = () => api.get('/inquiries/stats')
-export const getTrendData = (params: { startDate: string; endDate: string; groupBy: 'daily' | 'monthly' }) =>
-  api.get('/inquiries/trend', { params })
+export const getInquiryStats = (params?: any) => api.get('/inquiries/stats', { params })
 
 // ===== 对话 API =====
 export const sendMessage = (data: { sessionId: string; message: string; metadata?: any }) =>
@@ -119,9 +125,18 @@ export const deleteArticle = (id: string) => api.delete(`/articles/${id}`)
 // ===== 认证 API =====
 export const login = (username: string, password: string) =>
   api.post('/auth/login', { username, password })
-export const register = (username: string, password: string, email?: string) =>
-  api.post('/auth/register', { username, password, email })
+export const register = (username: string, password: string, email?: string, cities?: string[]) =>
+  api.post('/auth/register', { username, password, email, cities })
 export const getProfile = () => api.get('/auth/profile')
+
+// ===== 管理员管理 API =====
+export const getAdmins = () => api.get('/admin/list')
+export const createAdmin = (data: any) => api.post('/admin/create', data)
+export const updateAdmin = (id: string, data: any) => api.put(`/admin/${id}`, data)
+export const resetAdminPassword = (id: string, newPassword: string) => 
+  api.put(`/admin/${id}/reset-password`, { newPassword })
+export const deleteAdmin = (id: string) => api.delete(`/admin/${id}`)
+export const getManageableCities = () => api.get('/admin/cities')
 
 // ===== 表单模板 API =====
 export const getFormTemplates = (activeOnly: boolean = true) =>
@@ -162,10 +177,30 @@ export const getSessionFormData = (sessionId: string) =>
 export const saveSessionCity = (sessionId: string, city: string) =>
   api.post('/conversations/session/save-city', { sessionId, city })
 
+// ===== 数据统计 API =====
+export const getTrendData = (params: {
+  startDate: string
+  endDate: string
+  groupBy: 'daily' | 'monthly'
+  city?: string
+}) => api.get('/inquiries/trend', { params })
+
+// 获取可访问的城市列表
+export const getAccessibleCities = () => api.get('/admin/cities')
+
+// 获取数据库中实际存在的城市列表
+export const getAvailableCities = () => api.get('/inquiries/cities')
+
 // ===== 工具函数 =====
 export const getClientCity = async () => {
   try {
-    // 使用浏览器地理位置 API
+    // 优先使用IP地理位置API
+    const city = await getCityFromIP();
+    if (city && city !== '未知') {
+      return city;
+    }
+
+    // 如果IP地理位置失败，尝试浏览器地理位置API
     if (navigator.geolocation) {
       return new Promise((resolve) => {
         navigator.geolocation.getCurrentPosition(
@@ -196,57 +231,150 @@ export const getClientCity = async () => {
           },
           (error) => {
             console.warn('获取地理位置失败:', error);
-            // 如果用户拒绝或超时，尝试从时区推断
-            try {
-              const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-              if (timezone.includes('Shanghai') || timezone.includes('Beijing')) {
-                resolve('北京');
-              } else if (timezone.includes('Chongqing')) {
-                resolve('重庆');
-              } else if (timezone.includes('Chengdu')) {
-                resolve('成都');
-              } else if (timezone.includes('Guangzhou')) {
-                resolve('广州');
-              } else if (timezone.includes('Shenzhen')) {
-                resolve('深圳');
-              } else {
-                resolve('未知');
-              }
-            } catch (tzError) {
-              resolve('未知');
-            }
+            resolve('未知');
           },
           {
-            timeout: 10000,
-            enableHighAccuracy: true,
+            timeout: 5000,
+            enableHighAccuracy: false,
             maximumAge: 300000 // 5分钟缓存
           }
         )
       })
     }
     
-    // 如果地理位置API不可用，尝试从时区推断
-    try {
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      if (timezone.includes('Shanghai') || timezone.includes('Beijing')) {
-        return '北京';
-      } else if (timezone.includes('Chongqing')) {
-        return '重庆';
-      } else if (timezone.includes('Chengdu')) {
-        return '成都';
-      } else if (timezone.includes('Guangzhou')) {
-        return '广州';
-      } else if (timezone.includes('Shenzhen')) {
-        return '深圳';
-      }
-    } catch (error) {
-      console.warn('时区推断失败:', error);
-    }
-    
     return '未知'
   } catch (error) {
     console.warn('地理位置API不可用:', error);
     return '未知'
+  }
+}
+
+// 英文到中文城市名称映射
+const cityNameMapping: { [key: string]: string } = {
+  // 主要城市
+  'Beijing': '北京',
+  'Shanghai': '上海',
+  'Guangzhou': '广州',
+  'Shenzhen': '深圳',
+  'Chengdu': '成都',
+  'Hangzhou': '杭州',
+  'Nanjing': '南京',
+  'Wuhan': '武汉',
+  'Xi\'an': '西安',
+  'Tianjin': '天津',
+  'Chongqing': '重庆',
+  'Suzhou': '苏州',
+  'Changsha': '长沙',
+  'Zhengzhou': '郑州',
+  'Dongguan': '东莞',
+  'Qingdao': '青岛',
+  'Dalian': '大连',
+  'Ningbo': '宁波',
+  'Xiamen': '厦门',
+  'Fuzhou': '福州',
+  'Wuxi': '无锡',
+  'Hefei': '合肥',
+  'Kunming': '昆明',
+  'Harbin': '哈尔滨',
+  'Jinan': '济南',
+  'Foshan': '佛山',
+  'Changchun': '长春',
+  'Wenzhou': '温州',
+  'Shijiazhuang': '石家庄',
+  'Nanchang': '南昌',
+  'Taiyuan': '太原',
+  'Guiyang': '贵阳',
+  'Lanzhou': '兰州',
+  'Urumqi': '乌鲁木齐',
+  'Hohhot': '呼和浩特',
+  'Haikou': '海口',
+  'Yinchuan': '银川',
+  'Xining': '西宁',
+  'Lhasa': '拉萨'
+}
+
+// 将英文城市名转换为中文
+const translateCityName = (cityName: string): string => {
+  if (!cityName) return '未知'
+  
+  // 如果已经是中文，直接返回
+  if (/[\u4e00-\u9fa5]/.test(cityName)) {
+    return cityName
+  }
+  
+  // 查找映射
+  const chineseName = cityNameMapping[cityName]
+  if (chineseName) {
+    return chineseName
+  }
+  
+  // 如果没有找到映射，返回原名称
+  return cityName
+}
+
+// 通过IP地址获取城市信息
+const getCityFromIP = async (): Promise<string> => {
+  try {
+    // 主要服务：ip-api.com (支持中文)
+    try {
+      const response = await fetch('http://ip-api.com/json/?lang=zh-CN', {
+        method: 'GET',
+        signal: AbortSignal.timeout(3000)
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.city) {
+          return data.city;
+        }
+      }
+    } catch (error) {
+      console.warn('ip-api.com 服务失败:', error);
+    }
+
+    // 备用服务1：ipapi.co (需要翻译)
+    try {
+      const response = await fetch('https://ipapi.co/json/', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+        signal: AbortSignal.timeout(3000)
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.city) {
+          const translatedCity = translateCityName(data.city);
+          return translatedCity;
+        }
+      }
+    } catch (error) {
+      console.warn('ipapi.co 服务失败:', error);
+    }
+
+    // 备用服务2：ipinfo.io (需要翻译)
+    try {
+      const response = await fetch('https://ipinfo.io/json', {
+        method: 'GET',
+        signal: AbortSignal.timeout(3000)
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.city) {
+          const translatedCity = translateCityName(data.city);
+          return translatedCity;
+        }
+      }
+    } catch (error) {
+      console.warn('ipinfo.io 服务失败:', error);
+    }
+
+    return '未知';
+  } catch (error) {
+    console.warn('所有IP地理位置服务都失败:', error);
+    return '未知';
   }
 }
 

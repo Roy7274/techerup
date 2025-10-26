@@ -33,7 +33,7 @@ async function bootstrap() {
   );
 
   // 配置静态文件服务
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+  app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',
   });
 

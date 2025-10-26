@@ -45,7 +45,7 @@ export class AuthService {
     };
   }
 
-  async register(username: string, password: string, email?: string) {
+  async register(username: string, password: string, email?: string, cities: string[] = []) {
     const hashedPassword = await bcrypt.hash(password, 10);
     
     const admin = await this.prisma.admin.create({
@@ -53,6 +53,7 @@ export class AuthService {
         username,
         password: hashedPassword,
         email,
+        cities,
       },
     });
 
@@ -68,6 +69,7 @@ export class AuthService {
         username: true,
         email: true,
         role: true,
+        cities: true,
         isActive: true,
         lastLogin: true,
         createdAt: true,

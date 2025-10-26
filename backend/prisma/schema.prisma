@@ -81,14 +81,32 @@ model Banner {
 // 商家信息表
 model MerchantInfo {
   id           String   @id @default(uuid())
-  name         String   // 机构名称
-  description  String   @db.Text // 机构简介
-  detailedDescription String? @db.Text // 详细介绍（富文本）
-  services     Json     // 服务特色（JSON数组）
-  advantages   Json     // 师资优势（JSON数组）
-  contact      Json     // 联系方式（电话、地址等）
-  welcomeMessage String? // 欢迎语（用于前台对话默认展示）
+  // 新的字段结构
+  businessName String?  // 商家名称
+  businessType String?  // 业务类型
+  businessDescription String? @db.Text // 业务描述
+  location     String?  // 所在地区
+  contactPhone String?  // 联系电话
+  contactEmail String?  // 联系邮箱
   businessHours String? // 营业时间
+  services     Json     // 服务项目（JSON数组）
+  specialOffers String? @db.Text // 优惠活动
+  targetAudience String? // 目标客户
+  businessAdvantages String? @db.Text // 特色优势
+  aiConfig     Json?    // AI配置（包含模型、提示词等）
+  
+  // 新增：默认AI回复配置
+  defaultAIEnabled Boolean @default(false) // 是否默认开启AI智能回复
+  defaultAIPriority Int @default(5) // 默认AI回复优先级
+  defaultAIPrompt String? @db.Text // 默认AI提示词
+  
+  // 原有字段（保持向后兼容）
+  name         String?  // 机构名称（兼容字段）
+  description  String? @db.Text // 机构简介（兼容字段）
+  detailedDescription String? @db.Text // 详细介绍（富文本）
+  advantages   Json?    // 师资优势（JSON数组，兼容字段）
+  contact      Json?    // 联系方式（电话、地址等，兼容字段）
+  welcomeMessage String? // 欢迎语（用于前台对话默认展示）
   logoUrl      String?  // Logo地址
   coverUrl     String?  // 封面图
   isActive     Boolean  @default(true) // 是否启用
@@ -105,6 +123,7 @@ model Admin {
   password  String   // 加密后的密码
   email     String?
   role      String   @default("admin") // 角色：admin/super_admin
+  cities    String[] // 管理的城市列表，超级管理员为空数组表示管理所有城市
   isActive  Boolean  @default(true)
   lastLogin DateTime?
   createdAt DateTime @default(now())
@@ -224,15 +243,25 @@ model FormField {
 model AutoReply {
   id            String   @id @default(uuid())
   name          String   // 回复名称（管理用）
-  triggerType   String   // 触发类型：keyword/welcome/default/manual
+  triggerType   String   // 触发类型：keyword/welcome/default/manual/ai
   keywords      Json?    // 触发关键词数组
   priority      Int      @default(0) // 优先级（数字越大优先级越高）
-  message       String   @db.Text // 回复内容
+  message       String?  @db.Text // 回复内容（AI类型可为空）
   hasOptions    Boolean  @default(false) // 是否包含可点击选项
   options       Json?    // 选项数据 [{label: "预约试听", value: "booking", formTemplateId: "xxx"}]
   formTemplateId String? // 关联的表单模板ID
   isActive      Boolean  @default(true) // 是否启用
   useConditions Json?    // 使用条件（时间段、特定场景等）
+  
+  // AI相关字段
+  useAI         Boolean  @default(false) // 是否使用AI回复
+  aiPrompt      String?  @db.Text // AI提示词（自定义）
+  aiModel       String?  // AI模型名称（如不指定则使用默认）
+  
+  // 新增：关键词AI结合功能
+  keywordAIPrompt String? @db.Text // 关键词AI提示词（当触发关键词时使用）
+  keywordAIEnabled Boolean @default(false) // 是否启用关键词AI回复
+  
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -241,6 +270,7 @@ model AutoReply {
   @@map("auto_replies")
   @@index([triggerType])
   @@index([formTemplateId])
+  @@index([useAI])
 }
 
 // 自动回复暂停记录表（用于管理自动回复的暂停状态）

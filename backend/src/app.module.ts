@@ -12,6 +12,8 @@ import { ContentModuleModule } from './modules/content-module/content-module.mod
 import { ContentCardModule } from './modules/content-card/content-card.module';
 import { AutoReplyModule } from './modules/auto-reply/auto-reply.module';
 import { FormTemplateModule } from './modules/form-template/form-template.module';
+import { AdminModule } from './modules/admin/admin.module';
+import { AiModule } from './modules/ai/ai.module';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { FormTemplateModule } from './modules/form-template/form-template.module
     ContentCardModule,
     AutoReplyModule,
     FormTemplateModule,
+    AdminModule,
+    AiModule,
   ],
 })
 export class AppModule {}
