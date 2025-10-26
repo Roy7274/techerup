@@ -373,13 +373,12 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
       {/* 消息列表 - 移动端优化 */}
       <div className={`chat-messages-container space-y-2.5 sm:space-y-3 py-3 sm:py-4 px-1 sm:px-2 md:px-12 lg:px-20 xl:px-28 2xl:px-36 ${inline ? 'pb-24' : 'pb-32'}`} style={{ 
         flex: 1, 
-        paddingBottom: inline ? '6rem' : '8rem',
-        background: 'linear-gradient(180deg, #f8fbff 0%, #eef7ff 25%, #e6f2ff 50%, #eef7ff 75%, #f8fbff 100%)'
+        paddingBottom: inline ? '6rem' : '8rem'
       }}>
         {/* 正在为您服务提示 - 显示在消息列表顶部 */}
         {showServiceIndicator && (
           <div className="flex justify-center message-bubble mt-4 sm:mt-6">
-            <div className="px-4 py-2 text-gray-600 text-sm rounded-full shadow-sm" style={{
+            <div className="px-4 py-2 text-gray-600 text-sm rounded-full" style={{
               background: 'linear-gradient(135deg, #ffffff 0%, #f8fbff 100%)',
               border: '1px solid #e6f2ff'
             }}>
@@ -452,7 +451,8 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
                             : 'hover:bg-blue-50 active:scale-95'
                         }`}
                         style={{
-                          background: 'linear-gradient(135deg, #ffffff 0%, #f8fbff 100%)'
+                          background: 'linear-gradient(135deg, #ffffff 0%, #f8fbff 100%)',
+                          border: '1px solid #e6f2ff'
                         }}
                       >
                         {option.label}
@@ -490,7 +490,7 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
               )}
             </div>
             <div className="max-w-[85%] sm:max-w-[70%] md:max-w-[50%] lg:max-w-[40%] xl:max-w-[35%] 2xl:max-w-[30%]">
-              <div className="px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl rounded-tl-sm shadow-md text-base sm:text-lg" style={{
+              <div className="px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl rounded-tl-sm text-base sm:text-lg" style={{
                 background: 'linear-gradient(135deg, #ffffff 0%, #f8fbff 100%)',
                 border: '1px solid #e6f2ff'
               }}>
@@ -509,7 +509,8 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
 
       {/* 输入框 - 始终悬浮在底部 */}
       <div className="fixed bottom-0 left-0 right-0 z-50" style={{
-        background: 'linear-gradient(180deg, transparent 0%, #f8fbff 20%, #eef7ff 100%)'
+        background: 'linear-gradient(180deg, transparent 0%, rgba(248,251,255,0.3) 30%, rgba(240,248,255,0.5) 100%)',
+        backdropFilter: 'blur(8px)'
       }}>
         <div className="max-w-4xl mx-auto px-4 py-4">
           {/* 预约按钮 - 位于输入框左侧上方 */}
@@ -529,9 +530,10 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
               预约免费试听
             </Button>
           </div>
-          <div className="relative flex items-end rounded-3xl shadow-lg transition-colors px-4 py-3" style={{
+          <div className="relative flex items-end rounded-3xl transition-colors px-4 py-3" style={{
             background: 'linear-gradient(135deg, #ffffff 0%, #f8fbff 100%)',
-            border: '1px solid #e6f2ff'
+            border: '1px solid #e6f2ff',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.05)'
           }}>
             <TextArea
               value={inputValue}
@@ -597,8 +599,7 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
   if (inline) {
     return (
       <div className="flex flex-col w-full" style={{ 
-        minHeight: '400px',
-        background: 'linear-gradient(180deg, #f8fbff 0%, #eef7ff 25%, #e6f2ff 50%, #eef7ff 75%, #f8fbff 100%)'
+        minHeight: '400px'
       }}>
         {ChatContent}
       </div>
@@ -615,11 +616,8 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
         body: { 
           height: '500px', 
           display: 'flex', 
-          flexDirection: 'column', 
-          background: 'linear-gradient(180deg, #f8fbff 0%, #eef7ff 25%, #e6f2ff 50%, #eef7ff 75%, #f8fbff 100%)'
-        },
-        content: { background: 'linear-gradient(180deg, #f8fbff 0%, #eef7ff 25%, #e6f2ff 50%, #eef7ff 75%, #f8fbff 100%)' },
-        header: { background: 'linear-gradient(180deg, #f8fbff 0%, #eef7ff 25%, #e6f2ff 50%, #eef7ff 75%, #f8fbff 100%)' }
+          flexDirection: 'column'
+        }
       }}
     >
       {ChatContent}

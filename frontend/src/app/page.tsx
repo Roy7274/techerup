@@ -66,7 +66,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen relative" style={{
-      background: 'linear-gradient(180deg, #f8fbff 0%, #eef7ff 25%, #e6f2ff 50%, #eef7ff 75%, #f8fbff 100%)'
+      background: 'linear-gradient(180deg, #f8fbff 0%, #f0f8ff 20%, #eef7ff 40%, #e6f2ff 60%, #f0f8ff 80%, #f8fbff 100%)'
     }}>
       {/* 固定头部导航栏 */}
       <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md shadow-sm" style={{
@@ -132,7 +132,7 @@ export default function Home() {
         >
           {/* 移动端：横向滚动 */}
           <div className="block md:hidden">
-            <div className="mx-3 rounded-xl shadow-sm p-2" style={{
+            <div className="mx-3 rounded-xl p-2" style={{
               background: 'linear-gradient(135deg, #ffffff 0%, #f8fbff 100%)',
               border: '1px solid #e6f2ff'
             }}>
@@ -191,7 +191,7 @@ export default function Home() {
           <div className="hidden md:grid grid-cols-2 gap-6 px-4 mt-4">
             {contentModules.map((module) => (
               <div key={module.id} className="mb-0">
-                <div className="rounded-2xl pt-6 pb-6 px-6 shadow-sm hover:shadow-md transition-all" style={{
+                <div className="rounded-2xl pt-6 pb-6 px-6 transition-all" style={{
                   background: 'linear-gradient(135deg, #ffffff 0%, #f8fbff 100%)',
                   border: '1px solid #e6f2ff'
                 }}>
