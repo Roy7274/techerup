@@ -294,7 +294,7 @@ export class ConversationService {
       // 只有相同类型的连续回复才需要避免
       if (lastAutoReply && lastAutoReply.triggerType === 'scheduled') {
         this.logger.log(`会话 ${sessionId} 最近一条是定时询问，允许AI回复`);
-      } else if (lastAutoReply && (lastAutoReply.triggerType === 'default' || (lastAutoReply.metadata as any)?.isDefaultAI)) {
+      } else if (lastAutoReply && (lastAutoReply.triggerType === 'default' || lastAutoReply.useAI)) {
         this.logger.log(`会话 ${sessionId} 最近一条是AI回复，允许定时询问`);
       } else {
         this.logger.log(`会话 ${sessionId} 最近一条是相同类型的自动回复，跳过重复发送`);
