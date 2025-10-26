@@ -65,9 +65,13 @@ export default function Home() {
   // 弹窗模式已不需要，保留状态以兼容但不自动打开
 
   return (
-    <main className="min-h-screen bg-gray-100 relative">
+    <main className="min-h-screen relative" style={{
+      background: 'linear-gradient(180deg, #f8fbff 0%, #eef7ff 25%, #e6f2ff 50%, #eef7ff 75%, #f8fbff 100%)'
+    }}>
       {/* 固定头部导航栏 */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md shadow-sm">
+      <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md shadow-sm" style={{
+        background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,251,255,0.95) 100%)'
+      }}>
         <div className="max-w-4xl mx-auto px-3 sm:px-4">
           {/* 折叠状态：保持Logo一致，添加标签信息 */}
           <div 
@@ -128,7 +132,10 @@ export default function Home() {
         >
           {/* 移动端：横向滚动 */}
           <div className="block md:hidden">
-            <div className="bg-white mx-3 rounded-xl shadow-sm border border-gray-100 p-2">
+            <div className="mx-3 rounded-xl shadow-sm p-2" style={{
+              background: 'linear-gradient(135deg, #ffffff 0%, #f8fbff 100%)',
+              border: '1px solid #e6f2ff'
+            }}>
               {/* 标题区域 */}
               <div className="flex items-center justify-between mb-2 px-1">
                 <h2 className="text-base font-bold text-gray-900">服务推荐</h2>
@@ -184,7 +191,10 @@ export default function Home() {
           <div className="hidden md:grid grid-cols-2 gap-6 px-4 mt-4">
             {contentModules.map((module) => (
               <div key={module.id} className="mb-0">
-                <div className="bg-white rounded-2xl pt-6 pb-6 px-6 shadow-sm border border-gray-100 hover:shadow-md transition-all">
+                <div className="rounded-2xl pt-6 pb-6 px-6 shadow-sm hover:shadow-md transition-all" style={{
+                  background: 'linear-gradient(135deg, #ffffff 0%, #f8fbff 100%)',
+                  border: '1px solid #e6f2ff'
+                }}>
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
                       <h2 className="text-xl font-bold text-gray-900 tracking-tight">{module.title}</h2>

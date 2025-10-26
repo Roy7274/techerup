@@ -371,11 +371,18 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
   const ChatContent = (
     <>
       {/* 消息列表 - 移动端优化 */}
-      <div className={`chat-messages-container space-y-2.5 sm:space-y-3 py-3 sm:py-4 px-1 sm:px-2 md:px-12 lg:px-20 xl:px-28 2xl:px-36 bg-gray-100 ${inline ? 'pb-24' : 'pb-32'}`} style={{ flex: 1, paddingBottom: inline ? '6rem' : '8rem' }}>
+      <div className={`chat-messages-container space-y-2.5 sm:space-y-3 py-3 sm:py-4 px-1 sm:px-2 md:px-12 lg:px-20 xl:px-28 2xl:px-36 ${inline ? 'pb-24' : 'pb-32'}`} style={{ 
+        flex: 1, 
+        paddingBottom: inline ? '6rem' : '8rem',
+        background: 'linear-gradient(180deg, #f8fbff 0%, #eef7ff 25%, #e6f2ff 50%, #eef7ff 75%, #f8fbff 100%)'
+      }}>
         {/* 正在为您服务提示 - 显示在消息列表顶部 */}
         {showServiceIndicator && (
           <div className="flex justify-center message-bubble mt-4 sm:mt-6">
-            <div className="px-4 py-2 bg-white text-gray-600 text-sm rounded-full shadow-sm border border-gray-200">
+            <div className="px-4 py-2 text-gray-600 text-sm rounded-full shadow-sm" style={{
+              background: 'linear-gradient(135deg, #ffffff 0%, #f8fbff 100%)',
+              border: '1px solid #e6f2ff'
+            }}>
               正在为您服务
             </div>
           </div>
@@ -392,7 +399,8 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
                     <img
                       src={merchantLogo.startsWith('http') ? merchantLogo : `${API_URL}${merchantLogo}`}
                       alt={merchantName || '商家'}
-                      className="w-8 h-8 rounded-full object-cover border border-gray-200"
+                      className="w-8 h-8 rounded-full object-cover"
+                      style={{ border: '2px solid #e6f2ff' }}
                     />
                   ) : (
                     <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-full flex items-center justify-center">
@@ -412,8 +420,12 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
                   className={`px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl text-base sm:text-lg leading-relaxed ${
                     msg.sender === 'user'
                       ? 'bg-blue-500 text-white rounded-tr-sm shadow-sm'
-                      : 'bg-white text-gray-800 rounded-tl-sm border border-gray-100 shadow-md'
+                      : 'text-gray-800 rounded-tl-sm shadow-md'
                   }`}
+                  style={msg.sender !== 'user' ? {
+                    background: 'linear-gradient(135deg, #ffffff 0%, #f8fbff 100%)',
+                    border: '1px solid #e6f2ff'
+                  } : {}}
                 >
                   {hasFormatting(msg.message) ? (
                     <div 
@@ -434,11 +446,14 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
                         key={idx}
                         onClick={() => handleOptionClick(option, msg.id)}
                         disabled={loading}
-                        className={`px-4 py-2 bg-white text-blue-600 border-2 border-blue-500 rounded-full text-sm font-medium transition-all shadow-sm ${
+                        className={`px-4 py-2 text-blue-600 border-2 border-blue-500 rounded-full text-sm font-medium transition-all shadow-sm ${
                           loading 
                             ? 'opacity-50 cursor-not-allowed' 
                             : 'hover:bg-blue-50 active:scale-95'
                         }`}
+                        style={{
+                          background: 'linear-gradient(135deg, #ffffff 0%, #f8fbff 100%)'
+                        }}
                       >
                         {option.label}
                       </button>
@@ -459,7 +474,8 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
                 <img
                   src={merchantLogo.startsWith('http') ? merchantLogo : `${API_URL}${merchantLogo}`}
                   alt={merchantName || '商家'}
-                  className="w-8 h-8 rounded-full object-cover border border-gray-200"
+                  className="w-8 h-8 rounded-full object-cover"
+                  style={{ border: '2px solid #e6f2ff' }}
                 />
               ) : (
                 <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-full flex items-center justify-center">
@@ -474,7 +490,10 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
               )}
             </div>
             <div className="max-w-[85%] sm:max-w-[70%] md:max-w-[50%] lg:max-w-[40%] xl:max-w-[35%] 2xl:max-w-[30%]">
-              <div className="px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl rounded-tl-sm bg-white shadow-md border border-gray-100 text-base sm:text-lg">
+              <div className="px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl rounded-tl-sm shadow-md text-base sm:text-lg" style={{
+                background: 'linear-gradient(135deg, #ffffff 0%, #f8fbff 100%)',
+                border: '1px solid #e6f2ff'
+              }}>
                 <div className="typing-indicator flex space-x-1">
                   <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
                   <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
@@ -489,7 +508,9 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
       </div>
 
       {/* 输入框 - 始终悬浮在底部 */}
-      <div className="fixed bottom-0 left-0 right-0 z-50">
+      <div className="fixed bottom-0 left-0 right-0 z-50" style={{
+        background: 'linear-gradient(180deg, transparent 0%, #f8fbff 20%, #eef7ff 100%)'
+      }}>
         <div className="max-w-4xl mx-auto px-4 py-4">
           {/* 预约按钮 - 位于输入框左侧上方 */}
           <div className="flex justify-start mb-2">
@@ -508,7 +529,10 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
               预约免费试听
             </Button>
           </div>
-          <div className="relative flex items-end bg-white rounded-3xl shadow-lg border border-gray-200 hover:border-gray-300 transition-colors px-4 py-3">
+          <div className="relative flex items-end rounded-3xl shadow-lg transition-colors px-4 py-3" style={{
+            background: 'linear-gradient(135deg, #ffffff 0%, #f8fbff 100%)',
+            border: '1px solid #e6f2ff'
+          }}>
             <TextArea
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
@@ -572,7 +596,10 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
 
   if (inline) {
     return (
-      <div className="flex flex-col bg-gray-100 w-full" style={{ minHeight: '400px' }}>
+      <div className="flex flex-col w-full" style={{ 
+        minHeight: '400px',
+        background: 'linear-gradient(180deg, #f8fbff 0%, #eef7ff 25%, #e6f2ff 50%, #eef7ff 75%, #f8fbff 100%)'
+      }}>
         {ChatContent}
       </div>
     )
@@ -585,9 +612,14 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
       footer={null}
       width={500}
       styles={{ 
-        body: { height: '500px', display: 'flex', flexDirection: 'column', backgroundColor: '#f5f5f5' },
-        content: { backgroundColor: '#f5f5f5' },
-        header: { backgroundColor: '#f5f5f5' }
+        body: { 
+          height: '500px', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          background: 'linear-gradient(180deg, #f8fbff 0%, #eef7ff 25%, #e6f2ff 50%, #eef7ff 75%, #f8fbff 100%)'
+        },
+        content: { background: 'linear-gradient(180deg, #f8fbff 0%, #eef7ff 25%, #e6f2ff 50%, #eef7ff 75%, #f8fbff 100%)' },
+        header: { background: 'linear-gradient(180deg, #f8fbff 0%, #eef7ff 25%, #e6f2ff 50%, #eef7ff 75%, #f8fbff 100%)' }
       }}
     >
       {ChatContent}
