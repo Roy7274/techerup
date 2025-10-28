@@ -371,9 +371,10 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
   const ChatContent = (
     <>
       {/* 消息列表 - 移动端优化 */}
-      <div className={`chat-messages-container space-y-2.5 sm:space-y-3 py-3 sm:py-4 px-1 sm:px-2 md:px-12 lg:px-20 xl:px-28 2xl:px-36 ${inline ? 'pb-24' : 'pb-32'}`} style={{ 
+      <div className={`chat-messages-container space-y-2.5 sm:space-y-3 py-3 sm:py-4 px-1 sm:px-2 md:px-12 lg:px-20 xl:px-28 2xl:px-36 ${inline ? 'pb-36' : 'pb-44'}`} style={{ 
         flex: 1, 
-        paddingBottom: inline ? '6rem' : '8rem'
+        // 增大底部内边距，避免被底部固定输入区遮挡
+        paddingBottom: inline ? '9rem' : '11rem'
       }}>
         {/* 正在为您服务提示 - 显示在消息列表顶部 */}
         {showServiceIndicator && (
@@ -416,7 +417,7 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
               )}
               <div className="max-w-[85%] sm:max-w-[70%] md:max-w-[50%] lg:max-w-[40%] xl:max-w-[35%] 2xl:max-w-[30%]">
                 <div
-                  className={`px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl text-base sm:text-lg leading-relaxed ${
+                  className={`px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl text-base sm:text-lg leading-relaxed break-all whitespace-pre-wrap ${
                     msg.sender === 'user'
                       ? 'bg-blue-500 text-white rounded-tr-sm shadow-sm'
                       : 'text-gray-800 rounded-tl-sm shadow-md'
@@ -428,7 +429,7 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
                 >
                   {hasFormatting(msg.message) ? (
                     <div 
-                      className={getFormatClassName()}
+                      className={`${getFormatClassName()} break-all whitespace-pre-wrap`}
                       dangerouslySetInnerHTML={createSafeHtml(formatMessage(msg.message))} 
                       style={getFormatStyles()}
                     />
@@ -439,7 +440,7 @@ export default function ChatWidget({ visible, onClose, welcomeMessage, inline = 
                 
                 {/* 如果消息包含可点击选项，显示按钮 */}
                 {msg.metadata?.hasOptions && msg.metadata?.options && (
-                  <div className="mt-2 flex flex-wrap gap-2">
+                  <div className="mt-2 mb-3 flex flex-wrap gap-2">
                     {msg.metadata.options.map((option: any, idx: number) => (
                       <button
                         key={idx}

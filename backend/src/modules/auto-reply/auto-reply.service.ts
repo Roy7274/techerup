@@ -33,6 +33,51 @@ export class AutoReplyService {
     });
   }
 
+  // 标记会话定时检查为不活跃
+  async markSessionScheduledInactive(sessionId: string, reason: string) {
+    const session = await this.prisma.session.findUnique({ where: { sessionId } });
+    if (!session) return;
+    const currentMetadata = (session.metadata as any) || {};
+    const scheduledCheck = {
+      inactive: true,
+      reason,
+      since: new Date().toISOString(),
+    };
+    await this.prisma.session.update({
+      where: { sessionId },
+      data: {
+        metadata: {
+          ...currentMetadata,
+          scheduledCheck,
+        },
+      },
+    });
+    this.logger.log(`会话 ${sessionId} 已标记为定时检查不活跃，原因: ${reason}`);
+  }
+
+  // 取消不活跃标记，使定时检查恢复
+  async markSessionScheduledActive(sessionId: string) {
+    const session = await this.prisma.session.findUnique({ where: { sessionId } });
+    if (!session) return;
+    const currentMetadata = (session.metadata as any) || {};
+    const newMetadata = { ...currentMetadata } as any;
+    if (newMetadata.scheduledCheck?.inactive) {
+      newMetadata.scheduledCheck = { inactive: false, since: new Date().toISOString() };
+      await this.prisma.session.update({
+        where: { sessionId },
+        data: { metadata: newMetadata },
+      });
+      this.logger.log(`会话 ${sessionId} 定时检查已恢复活跃`);
+    }
+  }
+
+  // 检查会话是否已标记为定时检查不活跃
+  async isSessionScheduledInactive(sessionId: string): Promise<boolean> {
+    const session = await this.prisma.session.findUnique({ where: { sessionId } });
+    const scheduledCheck = (session?.metadata as any)?.scheduledCheck;
+    return Boolean(scheduledCheck?.inactive);
+  }
+
   // 获取所有自动回复
   async findAll(activeOnly: boolean = false) {
     return this.prisma.autoReply.findMany({

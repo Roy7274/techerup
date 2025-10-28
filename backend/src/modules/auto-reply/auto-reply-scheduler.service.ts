@@ -36,9 +36,12 @@ export class AutoReplySchedulerService {
         take: 100, // 限制处理数量，避免性能问题
       });
 
-      this.logger.log(`找到 ${activeSessions.length} 个活跃会话`);
+      // 基于内存过滤：排除已标记为定时不活跃的会话
+      const candidates = activeSessions.filter(s => !((s.metadata as any)?.scheduledCheck?.inactive === true));
 
-      for (const session of activeSessions) {
+      this.logger.log(`找到 ${candidates.length} 个可检查会话`);
+
+      for (const session of candidates) {
         try {
           await this.processSessionAutoReply(session.sessionId);
         } catch (error) {
@@ -55,6 +58,22 @@ export class AutoReplySchedulerService {
   // 处理单个会话的自动回复
   private async processSessionAutoReply(sessionId: string) {
     try {
+      // 空闲超过30分钟则停止定时检查
+      const session = await this.prisma.session.findUnique({ where: { sessionId } });
+      if (!session) return;
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+      if (session.lastActivity && session.lastActivity < thirtyMinutesAgo) {
+        await this.autoReplyService.markSessionScheduledInactive(sessionId, 'idle_30m');
+        this.logger.log(`会话 ${sessionId} 超过30分钟无活动，停止定时检查`);
+        return;
+      }
+
+      // 如果会话被标记为定时检查不活跃，直接跳过
+      const isScheduledInactive = await this.autoReplyService.isSessionScheduledInactive(sessionId);
+      if (isScheduledInactive) {
+        return;
+      }
+
       // 检查自动回复是否被暂停
       const isPaused = await this.autoReplyService.isAutoReplyPaused(sessionId);
       if (isPaused) {
@@ -108,6 +127,11 @@ export class AutoReplySchedulerService {
           // 通知前端有新消息
           this.conversationGateway.broadcastMessage(sessionId, botMessage);
         }
+      } else {
+        // 没有下一个定时询问，标记为不活跃，停止后续检查
+        await this.autoReplyService.markSessionScheduledInactive(sessionId, 'all_scheduled_sent');
+        this.logger.log(`会话 ${sessionId} 所有定时询问已发送完，停止定时检查`);
+        return;
       }
     } catch (error) {
       this.logger.error(`处理会话 ${sessionId} 自动回复失败:`, error);
