@@ -32,6 +32,7 @@ export class ConversationService {
 
       const sessionData = { 
         sessionId,
+        lastActivity: new Date(),
         metadata: {
           formData: {
             city: detectedCity
@@ -178,6 +179,8 @@ export class ConversationService {
     // 确保会话存在并更新活跃时间
     await this.getOrCreateSession(sessionId, clientIP, userAgent, acceptLanguage);
     await this.updateSessionActivity(sessionId);
+    // 用户活跃后，恢复定时检查活跃状态（如果之前被标记为不活跃）
+    await this.autoReplyService.markSessionScheduledActive(sessionId);
 
     // 如果metadata包含地理信息，优先使用前端获取的地理信息
     if (metadata?.geoInfo?.city) {
@@ -857,39 +860,42 @@ export class ConversationService {
     for (const conv of conversations) {
       const msg = conv.message;
       
-      // 城市信息
-      if (!city && conv.sender === 'user') {
-        // 简单匹配城市（可以改进为更智能的匹配）
-        const cityMatch = msg.match(/(.{2,10})(市|城)/);
-        if (cityMatch) {
-          city = msg.trim();
+      // 仅从用户消息中提取信息，忽略机器人/商家/客服消息
+      if (conv.sender === 'user') {
+        // 城市信息
+        if (!city) {
+          // 简单匹配城市（可以改进为更智能的匹配）
+          const cityMatch = msg.match(/(.{2,10})(市|城|区|县)/);
+          if (cityMatch) {
+            city = cityMatch[0];
+          }
         }
-      }
-      
-      // 学段信息
-      if (!grade) {
-        if (msg.includes('小学')) grade = '小学';
-        else if (msg.includes('初中')) grade = '初中';
-        else if (msg.includes('高中')) grade = '高中';
-      }
-      
-      // 性别信息
-      if (!studentGender) {
-        if (msg.includes('男孩')) studentGender = '男孩';
-        else if (msg.includes('女孩')) studentGender = '女孩';
-      }
-      
-      // 身份信息
-      if (!identity) {
-        if (msg.includes('本人')) identity = '本人';
-        else if (msg.includes('家长')) identity = '家长';
-      }
-      
-      // 电话号码
-      if (!phone) {
-        const phoneMatch = msg.match(/1[3-9]\d{9}/);
-        if (phoneMatch) {
-          phone = phoneMatch[0];
+        
+        // 学段信息
+        if (!grade) {
+          if (msg.includes('小学')) grade = '小学';
+          else if (msg.includes('初中')) grade = '初中';
+          else if (msg.includes('高中')) grade = '高中';
+        }
+        
+        // 性别信息
+        if (!studentGender) {
+          if (msg.includes('男孩') || msg.includes('男')) studentGender = '男孩';
+          else if (msg.includes('女孩') || msg.includes('女')) studentGender = '女孩';
+        }
+        
+        // 身份信息
+        if (!identity) {
+          if (msg.includes('本人') || msg.includes('学生')) identity = '本人';
+          else if (msg.includes('家长') || msg.includes('父母')) identity = '家长';
+        }
+        
+        // 电话号码
+        if (!phone) {
+          const phoneMatch = msg.match(/1[3-9]\d{9}/);
+          if (phoneMatch) {
+            phone = phoneMatch[0];
+          }
         }
       }
     }
